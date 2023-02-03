@@ -1,7 +1,7 @@
 import numpy as np
-import rosbag
-import rospy
-from sensor_msgs.msg import JointState
+#import rosbag
+#import rospy
+#from sensor_msgs.msg import JointState
 
 def build_jt_msg(q, dq, tau = None):
     msg = JointState()
