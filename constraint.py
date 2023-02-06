@@ -30,7 +30,10 @@ class Constraint():
         #x_sym for pose
         #h = violation(x_sym)
         #ca.jacobian(h, x_sym)
+        print("TEST")
         raise NotImplementedError       
+         
+
 
     def get_similarity(self, x, f):
         raise NotImplementedError
