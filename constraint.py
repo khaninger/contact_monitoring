@@ -55,20 +55,24 @@ class PointConstraint(Constraint):
         x_pt = x @ ca.vertcat(self.params['pt'], ca.SX(1)) # Transform 'pt' into world coordinates
         return ca.norm_2(x_pt[:3]-self.params['rest_pt'])
 
+
 class CableConstraint(Constraint):
     # a point is constrained to be a certain distance from a point in world coordinates
-    def __init__(self):
-        Constraint.__init__(self)
-        params_init = {'rest_pt': np.zeros(3),
-                       'radius': np.zeros(1)} # center of the sphere of motion
-        self.params = DecisionVarSet(x0 = params_init)
+    def init(self, rest_pt=np.zeros(3)):
+        Constraint.init(self)
+        params_init = {'rest_pt': rest_pt,
+                       'radius': np.zeros(1)}  # center of the sphere of motion
+        self.params = DecisionVarSet(x0=params_init)
         print("Initializing a CableConstraint with following params:")
         print(self.params)
-        
+
     def violation(self, x):
         # in: x is a position w/ 3 elements
-        dist = ca.norm_2(x-self.params['rest_pt'])
-        return ca.norm_2(dist-self.params['radius'])
+        if x.shape == (4, 4):  # if x is trans mat: extract point
+            x = x[:3, 3]
+        print(x)
+        dist = ca.norm_2(x - self.params['rest_pt'])
+        return ca.norm_2(dist - self.params['radius']) + 0.05 * dist
 
 class ConstraintSet():
     def __init__(self, dataset):
