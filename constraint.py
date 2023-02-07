@@ -2,11 +2,16 @@ import casadi as ca
 import numpy as np
 from decision_vars import DecisionVar, DecisionVarSet
 
+from scipy.spatial import ConvexHull
+from scipy.spatial.distance import cdist
+
 class Constraint():
     def __init__(self):
         self.params = None
     
     def fit(self, data):
+
+        self.max_dist(data)
         # in: data is the trajectory that we measure from the demonstration
         loss = 0
         for data_pt in data:
@@ -20,6 +25,30 @@ class Constraint():
         sol = solver(x0 = x0, lbx = lbx, ubx = ubx)
         self.params.set_results(sol['x'])
         print(self.params)
+        return self.params
+
+    def max_dist(self, data):
+        #https://stackoverflow.com/questions/31667070/max-distance-between-2-points-in-a-data-set-and-identifying-the-points
+        if data[0].shape == (4,4):
+            datapoints = data[:, :3, 3]
+        else:
+            datapoints = data
+        # Returned 420 points in testing
+        hull = ConvexHull(datapoints)
+
+        # Extract the points forming the hull
+        hullpoints = datapoints[hull.vertices, :]
+        # Naive way of finding the best pair in O(H^2) time if H is number of points on
+        # hull
+        hdist = cdist(hullpoints, hullpoints, metric='euclidean')
+        # Get the farthest apart points
+        bestpair = np.unravel_index(hdist.argmax(), hdist.shape)
+
+        self.dist = np.linalg.norm(hullpoints[bestpair[0]] - hullpoints[bestpair[1]])
+        # Print them
+        print("DEBUG")
+        print([hullpoints[bestpair[0]], hullpoints[bestpair[1]]])
+        print(self.dist)
 
     def violation(self, x):
         # constraint violation for a single pose x
@@ -30,10 +59,7 @@ class Constraint():
         #x_sym for pose
         #h = violation(x_sym)
         #ca.jacobian(h, x_sym)
-        print("TEST")
         raise NotImplementedError       
-         
-
 
     def get_similarity(self, x, f):
         raise NotImplementedError
@@ -43,7 +69,7 @@ class PointConstraint(Constraint):
     def __init__(self):
         Constraint.__init__(self)
         params_init = {'pt': np.zeros(3),       # contact point in the object frame, which changes wrt 'x'
-                       'rest_pt': np.zeros(3),} # resting position of the point contact in world coordinates
+                       'rest_pt': np.zeros(3)} # resting position of the point contact in world coordinates
 
         self.params = DecisionVarSet(x0 = params_init) # builds a dec var set with init value x0, optional params xlb xub
         print("Initializing a PointConstraint with following params:")
@@ -52,27 +78,25 @@ class PointConstraint(Constraint):
     def violation(self, x):
         # in: x is the object pose in a 4x4 transformation matrix
         # if h(x)=0 represents the constraint, violation is returning  h(x)
-        x_pt = x @ ca.vertcat(self.params['pt'], ca.SX(1)) # Transform 'pt' into world coordinates
+        x_pt = x @ ca.vertcat(self.params['pt'], ca.SX(1))  # Transform 'pt' into world coordinates
         return ca.norm_2(x_pt[:3]-self.params['rest_pt'])
-
 
 class CableConstraint(Constraint):
     # a point is constrained to be a certain distance from a point in world coordinates
-    def init(self, rest_pt=np.zeros(3)):
-        Constraint.init(self)
+    def __init__(self, rest_pt = np.zeros(3)):
+        Constraint.__init__(self)
         params_init = {'rest_pt': rest_pt,
-                       'radius': np.zeros(1)}  # center of the sphere of motion
-        self.params = DecisionVarSet(x0=params_init)
+                       'radius': np.zeros(1)} # center of the sphere of motion
+        self.params = DecisionVarSet(x0 = params_init)
         print("Initializing a CableConstraint with following params:")
         print(self.params)
-
+        
     def violation(self, x):
         # in: x is a position w/ 3 elements
-        if x.shape == (4, 4):  # if x is trans mat: extract point
+        if x.shape == (4,4): #if x is trans mat: extract point
             x = x[:3, 3]
-        print(x)
-        dist = ca.norm_2(x - self.params['rest_pt'])
-        return ca.norm_2(dist - self.params['radius']) + 0.05 * dist
+        dist = ca.norm_2(x-self.params['rest_pt'])
+        return ca.norm_2(dist-self.params['radius']) + 0.1 * dist
 
 class ConstraintSet():
     def __init__(self, dataset):
