@@ -96,7 +96,7 @@ class CableConstraint(Constraint):
         if x.shape == (4,4): #if x is trans mat: extract point
             x = x[:3, 3]
         dist = ca.norm_2(x-self.params['rest_pt'])
-        return ca.norm_2(dist-self.params['radius']) + 0.1 * dist
+        return ca.norm_2(dist-self.params['radius']) + 0.1 * dist + 0.1 * ca.norm_2(self.params['radius'])
 
 class ConstraintSet():
     def __init__(self, dataset):
