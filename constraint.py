@@ -140,4 +140,6 @@ class ConstraintSet():
     
     def id_constraint_force(self, x, f):
         # identify which constraint is most closely matching the current force
+        for constr in self.constraints:
+            sim_score = constr.get_similarity(x, F)
         pass
