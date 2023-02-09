@@ -55,13 +55,13 @@ class Constraint():
     def violation(self, x):
         # constraint violation for a single pose x
         raise NotImplementedError
-    
+
     def get_jac(self, x):
         # jacobian evaluated at point x
         #x_sym for pose
         #h = violation(x_sym)
         #ca.jacobian(h, x_sym)
-        raise NotImplementedError       
+        raise NotImplementedError
 
     def get_similarity(self, x, f):
         raise NotImplementedError
