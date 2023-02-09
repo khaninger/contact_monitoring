@@ -27,6 +27,8 @@ class Constraint():
         sol = solver(x0 = x0, lbx = lbx, ubx = ubx)
         self.params.set_results(sol['x'])
         print(self.params)
+
+        self.build_jac()
         return self.params
 
     def max_dist(self, data):
@@ -56,14 +58,21 @@ class Constraint():
         # constraint violation for a single pose x
         raise NotImplementedError
 
-    def get_jac(self, x):
+    def build_jac(self, x):
         # jacobian evaluated at point x
         #x_sym for pose
         #h = violation(x_sym)
-        #ca.jacobian(h, x_sym)
+        #self.jac_fn = ca.jacobian(h, x_sym)
+        #self.jac_pinv_fn = ca.pinv(...)
         raise NotImplementedError
 
     def get_similarity(self, x, f):
+        # IN: x is a numerical value for a pose
+        # IN: f is the numerical value for measured force
+        # TODO add the least squares residual calculation
+        # TODO check x and f are same dim
+        assert (x.shape == f.shape)
+        return ca.norm_2(f-self.jac_fn(x).T@(f@self.jac_pinv_fn(x))).full()
         raise NotImplementedError
 
 class PointConstraint(Constraint):
