@@ -2,8 +2,36 @@ import numpy as np
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 
-def plot_3d_points(L,rest_pt):
+def set_axes_equal(ax):
+    '''Make axes of 3D plot have equal scale so that spheres appear as spheres,
+    cubes as cubes, etc..  This is one possible solution to Matplotlib's
+    ax.set_aspect('equal') and ax.axis('equal') not working for 3D.
 
+    Input
+      ax: a matplotlib axis, e.g., as output from plt.gca().
+    '''
+
+    x_limits = ax.get_xlim3d()
+    y_limits = ax.get_ylim3d()
+    z_limits = ax.get_zlim3d()
+
+    x_range = abs(x_limits[1] - x_limits[0])
+    x_middle = np.mean(x_limits)
+    y_range = abs(y_limits[1] - y_limits[0])
+    y_middle = np.mean(y_limits)
+    z_range = abs(z_limits[1] - z_limits[0])
+    z_middle = np.mean(z_limits)
+
+    # The plot bounding box is a sphere in the sense of the infinity
+    # norm, hence I call half the max range the plot radius.
+    plot_radius = 0.5*max([x_range, y_range, z_range])
+
+    ax.set_xlim3d([x_middle - plot_radius, x_middle + plot_radius])
+    ax.set_ylim3d([y_middle - plot_radius, y_middle + plot_radius])
+    ax.set_zlim3d([z_middle - plot_radius, z_middle + plot_radius])
+
+def plot_3d_points(L,rest_pt):
+    color_segments = ['b', 'g', 'm']
     if L[0].shape == (4,4):
         points = np.array([arr[:3, 3] for arr in L])
     else:
@@ -12,8 +40,10 @@ def plot_3d_points(L,rest_pt):
 
     fig = plt.figure()
     ax = fig.add_subplot(111, projection='3d')
-    ax.scatter(points[:, 0], points[:, 1], points[:, 2], color='b')
+    for i in range(points.shape[1]):
+        ax.scatter(points[:, i, 0], points[:, i, 1], points[:, i, 2], color=color_segments[i])
     ax.scatter(rest_pt[0], rest_pt[1], rest_pt[2], color='r')
+    set_axes_equal(ax)
     plt.show()
 
 
@@ -45,13 +75,13 @@ def plot_distance(L,rest_pt):
 if __name__ == "__main__":
     from dataload_helper import plug, rake
     show_plug = False
-    show_rake = True
+    show_rake = False
     if show_plug:
 
         for i in range(3):
-            dataset = plug(index=1 + i, experiment="", clustered=False, segment=True).load()
+            dataset = plug(index=1 + i, experiment="", clustered=True, segment=True).load()
             plot_3d_points_segments(dataset, [-.3, -.3, 0])
-
+        """
         for i in range(3):
             dataset = plug(index=1 + i, experiment="less_", clustered=False, segment=True).load()
             plot_3d_points_segments(dataset, [-.3, -.3, 0])
@@ -59,7 +89,15 @@ if __name__ == "__main__":
         for i in range(3):
             dataset = plug(index=1 + i, experiment="threading_", clustered=False, segment=True).load()
             plot_3d_points_segments(dataset, [-.3, -.3, 0])
+        """
     if show_rake:
         for i in range(5):
             dataset = rake(index=i+1, clustered=False, segment=True).load(center=True)
             plot_3d_points_segments(dataset, [0,0,0], i+1)
+
+
+if __name__ == "__main__":
+    from dataload_helper import point_c_data
+
+    pts = point_c_data(n_points=3, noise=0.01).points()
+    plot_3d_points(L=pts, rest_pt = np.array([0.1, 0.2, 0.3]))
