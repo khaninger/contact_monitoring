@@ -12,7 +12,7 @@ class Constraint():
         print("Initializing a Constraint with following params:")
         print(self.params)
     
-    def fit(self, data)
+    def fit(self, data):
         self.max_dist(data)
         # in: data is the trajectory that we measure from the demonstration
         loss = 0
@@ -88,15 +88,12 @@ class PointConstraint(Constraint):
 class PointConstraint_v2(Constraint):
     # a point on the rigidly held object is fixed in world coordinates
     def __init__(self):
-        Constraint.__init__(self)
         params_init = {'radius_1': np.zeros(1),
                        'radius_2': np.zeros(1),
                        'radius_3': np.zeros(1),
                         'rest_pt': np.zeros(3)}
 
-        self.params = DecisionVarSet(x0 = params_init) # builds a dec var set with init value x0, optional params xlb xub
-        print("Initializing a PointConstraint with following params:")
-        print(self.params)
+        Constraint.__init__(self, params_init)
 
     def violation(self, x):
         loss = ca.fabs(self.params['radius_1'] - ca.norm_2(x[0, :3] - self.params['rest_pt']))
@@ -147,12 +144,9 @@ class LineOnSurfaceConstraint(Constraint):
 class Line(Constraint):
 
     def __init__(self):
-        Constraint.__init__(self)
         params_init = {'pt_0': np.zeros(3), 'pt_1': np.zeros(3),  # contact point in the object frame, which changes wrt 'x'
                        'rest_plane': np.zeros((4,4))}  # resting pose of contact plane in world coordinates (z_axis is normal of plane pointing in direction of free motion)
-        self.params = DecisionVarSet(x0=params_init)
-        print("Initializing a CableConstraint with following params:")
-        print(self.params)
+        Constraint.__init__(self, params_init)
 
     def violation(self, x):
         x_pt_0 = x @ ca.vertcat(self.params['pt_0'], ca.SX(1))  # Transform 'pt' into world coordinates
