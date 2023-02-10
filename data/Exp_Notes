@@ -3,3 +3,12 @@ Data:
 plug 		-> exaggerated constrains
 plug_less 	-> less motion
 plug_ threading -> thread constrain
+
+
+rest_pt [x, y, z] in [m]
+plug [-0.31187662, -0.36479221, -0.03707742]
+plug_threading_ exp: first [-0.31187662, -0.36479221, -0.03707742]; second [-0.22657112, -0.47936426, -0.0320753]
+
+radius r in [m]
+plug: 0.28
+plug_threading_ exp: first 0.28; second 0.14
