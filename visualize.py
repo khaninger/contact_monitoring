@@ -49,7 +49,17 @@ def plot_3d_points(L,rest_pt):
 
 def plot_3d_points_segments(L, rest_pt, exp_n=0):
     fig = plt.figure()
+
+    # Create a sphere using spherical coordinates
+    radius = .28
+    phi = np.linspace(0, np.pi, 100)
+    theta = np.linspace(0, 2 * np.pi, 100)
+    x = radius*np.outer(np.sin(phi), np.cos(theta)) + rest_pt[0]
+    y = radius*np.outer(np.sin(phi), np.sin(theta)) + rest_pt[1]
+    z = radius*np.outer(np.cos(phi), np.ones_like(theta)) + rest_pt[2]
+
     ax = fig.add_subplot(111, projection='3d')
+    ax.plot_wireframe(x, y, z, color='black', linewidth=0.5)
     color_segments = ['b', 'g', 'm']
     for i, L_segment in enumerate(L):
         if L_segment[0].shape == (4,4):
@@ -61,6 +71,7 @@ def plot_3d_points_segments(L, rest_pt, exp_n=0):
         ax.scatter(rest_pt[0], rest_pt[1], rest_pt[2], color='r', label="rest_pt")
     if exp_n != 0:
         ax.set_title(f"Experiment {exp_n}")
+    set_axes_equal(ax)
     ax.legend()
     plt.show()
 
