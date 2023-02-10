@@ -16,13 +16,16 @@ class Constraint():
         #self.max_dist(data)
         # in: data is the trajectory that we measure from the demonstration
         loss = 0
+        ineq_constraints = []
         for data_pt in data:
             loss += self.violation(data_pt)
+            ineq_constraints.append(self.slack_violation(data_pt))
+        ineq_constraints.append(-self.params['slack'])
         # get dec vars; x is symbolic decision vector of all params, lbx/ubx lower/upper bounds
         x, lbx, ubx = self.params.get_dec_vectors()
         x0 = self.params.get_x0()
-        args = dict(x0=x0, lbx=lbx, ubx=ubx, p=None)
-        prob = dict(f=loss, x=x)
+        args = dict(x0=x0, lbx=lbx, ubx=ubx, p=None, lbg=-np.inf, ubg=np.zeros(len(ineq_constraints)))
+        prob = dict(f=loss, x=x, g=ca.vertcat(*ineq_constraints))
         solver = ca.nlpsol('solver', 'ipopt', prob)
         sol = solver(x0 = x0, lbx = lbx, ubx = ubx)
         self.params.set_results(sol['x'])
@@ -51,7 +54,7 @@ class Constraint():
         self.data_maxd = np.linalg.norm(hullpoints[bestpair[0]] - hullpoints[bestpair[1]])
 
 
-    def violation(self, x):
+    def violation(self, x: object) -> object:
         # constraint violation for a single pose x
         raise NotImplementedError
 
@@ -111,7 +114,7 @@ class PointConstraint_v3(Constraint):
         #params_init = {'radius_1': np.array([0.28]),
          #               'rest_pt': np.array([-0.31187662, -0.36479221, -0.03707742])}
 
-        params_init = {'radius_1': np.array([0]),
+        params_init = {'radius_1': np.array([0.5]),
                        'rest_pt': np.array([0, 0, 0])}
 
         Constraint.__init__(self, params_init)
@@ -123,6 +126,23 @@ class PointConstraint_v3(Constraint):
         loss += 0.1 * (self.params['radius_1'])
         return loss
 
+class PointConstraint_v4_FINAL(Constraint):
+    # a point on the rigidly held object is fixed in world coordinates
+    def __init__(self):
+        params_init = {'radius_1': np.array([0.28]),
+                       'rest_pt': np.array([-0.31187662, -0.36479221, -0.03707742]),
+                       'slack': np.array([1])}
+
+        #params_init = {'radius_1': np.array([0.5]),
+        #               'rest_pt': np.array([0, 0, 0]),
+        #               'slack': np.array([1])}
+
+        Constraint.__init__(self, params_init)
+
+    def slack_violation(self, x):
+        return ca.fabs(self.params['radius_1'] - ca.norm_2(x - self.params['rest_pt']))-self.params['slack']
+    def violation(self, x):
+        return ca.norm_2(self.params['slack'])
 class CableConstraint(Constraint):
     # a point is constrained to be a certain distance from a point in world coordinates
     def __init__(self, rest_pt = np.zeros(3)):
@@ -216,7 +236,7 @@ if __name__ == "__main__":
     #print(pts.shape)
     print("start fit")
     #constraint = PointConstraint_v2()
-    constraint = PointConstraint_v3()
+    constraint = PointConstraint_v4_FINAL()
     params = constraint.fit(pts[1])
     plot_3d_points_segments(L=pts, rest_pt=params['rest_pt'])
     #plot_3d_points_segments(L=pts, rest_pt=np.array([-0.31187662, -0.36479221, -0.03707742]))
