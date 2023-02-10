@@ -13,7 +13,7 @@ class Constraint():
         print(self.params)
     
     def fit(self, data):
-        self.max_dist(data)
+        #self.max_dist(data)
         # in: data is the trajectory that we measure from the demonstration
         loss = 0
         for data_pt in data:
@@ -28,7 +28,7 @@ class Constraint():
         self.params.set_results(sol['x'])
         print(self.params)
 
-        self.build_jac()
+        #self.build_jac()
         return self.params
 
     def max_dist(self, data):
@@ -96,9 +96,31 @@ class PointConstraint_v2(Constraint):
         Constraint.__init__(self, params_init)
 
     def violation(self, x):
+        print("DEBUG!!!")
+        print(x.shape)
         loss = ca.fabs(self.params['radius_1'] - ca.norm_2(x[0, :3] - self.params['rest_pt']))
         loss += ca.fabs(self.params['radius_2'] - ca.norm_2(x[1, :3] - self.params['rest_pt']))
         loss += ca.fabs(self.params['radius_3'] - ca.norm_2(x[2, :3] - self.params['rest_pt']))
+        loss += 0.1 * (self.params['radius_1']+self.params['radius_2']+self.params['radius_3'])
+        return loss
+
+
+class PointConstraint_v3(Constraint):
+    # a point on the rigidly held object is fixed in world coordinates
+    def __init__(self):
+        #params_init = {'radius_1': np.array([0.28]),
+         #               'rest_pt': np.array([-0.31187662, -0.36479221, -0.03707742])}
+
+        params_init = {'radius_1': np.array([0]),
+                       'rest_pt': np.array([0, 0, 0])}
+
+        Constraint.__init__(self, params_init)
+
+    def violation(self, x):
+        print("DEBUG!!!")
+        print(x.shape)
+        loss = ca.fabs(self.params['radius_1'] - ca.exp(1+1000*ca.norm_2(x - self.params['rest_pt'])))
+        loss += 0.1 * (self.params['radius_1'])
         return loss
 
 class CableConstraint(Constraint):
@@ -186,8 +208,15 @@ class ConstraintSet():
         pass
 
 if __name__ == "__main__":
-    from dataload_helper import point_c_data
-    pts = point_c_data(n_points=3, noise=0.00).points()
+    from dataload_helper import point_c_data, plug
+    from visualize import plot_3d_points, plot_3d_points_segments
+    #pts = point_c_data(n_points=3, noise=0.01, rot_0=0.5, rot_1=1).points()
+    pts = plug(index=3, segment=True).load()
+    #print("pts.shape")
+    #print(pts.shape)
     print("start fit")
-    constraint = PointConstraint_v2()
-    constraint.fit(pts)
+    #constraint = PointConstraint_v2()
+    constraint = PointConstraint_v3()
+    params = constraint.fit(pts[1])
+    plot_3d_points_segments(L=pts, rest_pt=params['rest_pt'])
+    #plot_3d_points_segments(L=pts, rest_pt=np.array([-0.31187662, -0.36479221, -0.03707742]))

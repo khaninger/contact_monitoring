@@ -106,7 +106,7 @@ class point_c_data:
                 new_pt = np.transpose(np.asarray(new_rotmat @ pt)) + np.tile(self.rest_pt,(self.n_points,1))
                 t_pts.append(new_pt)
         t_pts = np.array(t_pts)
-        index = np.random.choice(len(t_pts), 25, replace=False).astype(int)
+        index = np.random.choice(len(t_pts), 100, replace=False).astype(int)
         return t_pts[index]
 
 class rake(data):
