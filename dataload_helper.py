@@ -83,6 +83,31 @@ class plug(data):
 
         return Tmats[index]
 
+class point_c_data:
+
+    def __init__(self, n_points=1, rest_pt = np.array([0.1, 0.2, 0.3]), noise=0.01, rot_0=.4, rot_1=.2):
+        self.rot_0 = rot_0
+        self.rot_1 = rot_1
+        self.n_points = n_points
+        self.rest_pt = rest_pt
+        self.noise_t = np.random.normal(0, noise, size=(3,n_points))
+        self.noise_r = np.random.normal(0, noise, size=(3,))
+    def points(self):
+        pt = np.array([[0, 0, 0.5], [0, 0.01, 0.52], [0.02, -0.01, 0.49]])
+        pt = np.transpose(pt[:self.n_points])
+        print("Debug")
+        print(pt)
+
+        t_pts = []
+        for x_rot in np.linspace(-self.rot_0/2, self.rot_0/2, 100):
+            for y_rot in np.linspace(-self.rot_1/2, self.rot_1/2, 100):
+                rotation = np.array([x_rot, y_rot, 0])+self.noise_r
+                new_rotmat = xyz_to_rotation(rotation)
+                new_pt = np.transpose(np.asarray(new_rotmat @ pt)) + np.tile(self.rest_pt,(self.n_points,1))
+                t_pts.append(new_pt)
+        t_pts = np.array(t_pts)
+        index = np.random.choice(len(t_pts), 25, replace=False).astype(int)
+        return t_pts[index]
 
 class rake(data):
     def __init__(self, index=1, clustered=False, segment=True):
@@ -119,12 +144,7 @@ class rake(data):
 
 
 if __name__ == "__main__":
-    for i in range(3):
-        for experiment in ["", "threading_", "less_"]:
-            dataset = plug(index=i+1, experiment="threading_", clustered=False, segment=True).load()
-    for i in range(5):
-        dataset = rake(index=i+1, clustered=False, segment=True).load(center=True)
-
-
+    pts = point_c_data(n_points=1).points()
+    print(np.array(pts).shape)
 
 
