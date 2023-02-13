@@ -48,8 +48,7 @@ def plot_3d_points(L,rest_pt):
 
 
 def plot_3d_points_segments(L, rest_pt=np.array([-0.31187662, -0.36479221, -0.03707742]), radius = .28, exp_n=0):
-    fig = plt.figure()
-
+    fig = plt.figure(figsize=(14, 10), dpi=80)
     # Create a sphere using spherical coordinates
     phi = np.linspace(0, np.pi, 100)
     theta = np.linspace(0, 2 * np.pi, 100)
