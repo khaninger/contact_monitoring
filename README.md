@@ -2,6 +2,6 @@
 
 ## Install
 ```
-git clone https://gitlab.cc-asp.fraunhofer.de/ipk_aut/converging/contact_monitoring.git
+git clone https://github.com/khaninger/contact_monitoring.git
 pip install casadi
 ```
