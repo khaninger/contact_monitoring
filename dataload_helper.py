@@ -2,6 +2,7 @@ import pickle
 import os
 import numpy as np
 from rotation_helpers import xyz_to_rotation
+import kp2pose
 
 class data():
 
@@ -92,8 +93,8 @@ class point_c_data:
         self.rest_pt = rest_pt
         self.noise_t = np.random.normal(0, noise, size=(3,n_points))
         self.noise_r = np.random.normal(0, noise, size=(3,))
-    def points(self):
-        pt = np.array([[0, 0, 0.5], [0, 0.01, 0.52], [0.02, -0.01, 0.49]])
+    def points(self, radius=.5):
+        pt = np.array([[0, 0, radius], [0, 0.01, 0.52], [0.02, -0.01, 0.49]])
         pt = np.transpose(pt[:self.n_points])
         print("Debug")
         print(pt)
@@ -117,18 +118,39 @@ class rake(data):
         self.directory += "rake_"
         self.path = self.directory + str(self.index) + ".pickle"
 
-    def load(self, center=False):
+    def load(self, center=False, pose=False):
         if os.path.isfile(self.path):
             dataset = np.array(self.load_data(self.path))
             print(f"\nLoaded {len(dataset)} samples from rake dataset")
             if center:
                 dataset = np.mean(dataset, axis=1)[:, None, :]
 
+            if pose:
+                kp_dim = 3
+                init_kp = dataset[0,:,:kp_dim]
+                T_init = kp2pose.init_T(init_kp)
+                dataset_pose = []
+                dataset_pose_segments = []
+                for i in range(dataset.shape[0]):
+                    data_kp = dataset[i,:,:kp_dim]
+                    T_rake = kp2pose.find_T(init_kp, data_kp) @ T_init
+                    dataset_pose.append(T_rake)
+                    dataset_pose_segments.append(dataset[i,0,-1])
+                    print("T_rake")
+                    print(T_rake)
+                dataset_pose_segments = np.array(dataset_pose_segments)
+                dataset = np.array(dataset_pose)
+
+
             #generate list of segments
             if self.segment:
                 dataset_segments = []
-                for segment in range(int(max(dataset[:, 0, -1])) + 1):
-                    dataset_segments.append(dataset[dataset[:, 0, -1] == segment, :, :3][:,0,:])
+                if not pose:
+                    for segment in range(int(max(dataset[:, 0, -1])) + 1):
+                        dataset_segments.append(dataset[dataset[:, 0, -1] == segment, :, :3][:,0,:])
+                else:
+                    for segment in range(int(max(dataset_pose_segments) + 1)):
+                        dataset_segments.append(dataset[dataset_pose_segments == segment, :, :])
                 print(
                     f"Dataset contains {len(dataset_segments)} segments:")
                 try:
@@ -144,7 +166,6 @@ class rake(data):
 
 
 if __name__ == "__main__":
-    pts = point_c_data(n_points=1).points()
-    print(np.array(pts).shape)
-
-
+    #pts = point_c_data(n_points=1).points()
+    #print(np.array(pts).shape)
+    dataset = rake(index=1, segment=True).load(pose=True)
