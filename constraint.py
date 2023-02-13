@@ -12,26 +12,45 @@ class Constraint():
         print("Initializing a Constraint with following params:")
         print(self.params)
     
-    def fit(self, data):
+    def fit_h2(self, data):
         #self.max_dist(data)
         # in: data is the trajectory that we measure from the demonstration
         loss = 0
-        ineq_constraints = []
         for data_pt in data:
-            loss += self.violation(data_pt)
-            ineq_constraints.append(self.slack_violation(data_pt))
-        ineq_constraints.append(-self.params['slack'])
+            loss += ca.norm_2(self.violation(data_pt))
+            
+        # get dec vars; x is symbolic decision vector of all params, lbx/ubx lower/upper bounds
+        x, lbx, ubx = self.params.get_dec_vectors()
+        x0 = self.params.get_x0()
+        args = dict(x0=x0, lbx=lbx, ubx=ubx, p=None)
+        prob = dict(f=loss, x=x)
+        solver = ca.nlpsol('solver', 'ipopt', prob)
+        sol = solver(x0 = x0, lbx = lbx, ubx = ubx)
+        self.params.set_results(sol['x'])
+        print(self.params)
+        return self.params
+ 
+    def fit_hinf(self, data):
+        # in: data is the trajectory that we measure from the demonstration
+
+        # add a slack variable which will bound the violation, and be minimized
+        self.params['slack'] = DecisionVar(x0 = [0.5], lb = [0.0])
+        loss = self.params['slack']
+        
+        # make the inequality constraints, which should always be <0, i.e. |violation|<slack
+        ineq_constraints = [ca.fabs(self.violation(d))-self.params['slack'] for d in data]
+        
         # get dec vars; x is symbolic decision vector of all params, lbx/ubx lower/upper bounds
         x, lbx, ubx = self.params.get_dec_vectors()
         x0 = self.params.get_x0()
         args = dict(x0=x0, lbx=lbx, ubx=ubx, p=None, lbg=-np.inf, ubg=np.zeros(len(ineq_constraints)))
         prob = dict(f=loss, x=x, g=ca.vertcat(*ineq_constraints))
         solver = ca.nlpsol('solver', 'ipopt', prob)
+
+        # solve, print and return
         sol = solver(x0 = x0, lbx = lbx, ubx = ubx)
         self.params.set_results(sol['x'])
         print(self.params)
-
-        #self.build_jac()
         return self.params
 
     def max_dist(self, data):
@@ -112,7 +131,7 @@ class PointConstraint_v3(Constraint):
     # a point on the rigidly held object is fixed in world coordinates
     def __init__(self):
         #params_init = {'radius_1': np.array([0.28]),
-         #               'rest_pt': np.array([-0.31187662, -0.36479221, -0.03707742])}
+        #               'rest_pt': np.array([-0.31187662, -0.36479221, -0.03707742])}
 
         params_init = {'radius_1': np.array([0.5]),
                        'rest_pt': np.array([0, 0, 0])}
@@ -129,20 +148,17 @@ class PointConstraint_v3(Constraint):
 class PointConstraint_v4_FINAL(Constraint):
     # a point on the rigidly held object is fixed in world coordinates
     def __init__(self):
-        params_init = {'radius_1': np.array([0.28]),
-                       'rest_pt': np.array([-0.31187662, -0.36479221, -0.03707742]),
-                       'slack': np.array([1])}
+        #params_init = {'radius_1': np.array([0.28]),
+        #               'rest_pt': np.array([-0.31187662, -0.36479221, -0.03707742])}
 
-        #params_init = {'radius_1': np.array([0.5]),
-        #               'rest_pt': np.array([0, 0, 0]),
-        #               'slack': np.array([1])}
+        params_init = {'radius_1': np.array([0.5]),
+                       'rest_pt': np.array([0, 0, 0])}
 
         Constraint.__init__(self, params_init)
-
-    def slack_violation(self, x):
-        return ca.fabs(self.params['radius_1'] - ca.norm_2(x - self.params['rest_pt']))-self.params['slack']
+ 
     def violation(self, x):
-        return ca.norm_2(self.params['slack'])
+        return self.params['radius_1'] - ca.norm_2(x - self.params['rest_pt'])
+
 class CableConstraint(Constraint):
     # a point is constrained to be a certain distance from a point in world coordinates
     def __init__(self, rest_pt = np.zeros(3)):
@@ -184,7 +200,6 @@ class LineOnSurfaceConstraint(Constraint):
         
 
 class Line(Constraint):
-
     def __init__(self):
         params_init = {'pt_0': np.zeros(3), 'pt_1': np.zeros(3),  # contact point in the object frame, which changes wrt 'x'
                        'rest_plane': np.zeros((4,4))}  # resting pose of contact plane in world coordinates (z_axis is normal of plane pointing in direction of free motion)
@@ -230,13 +245,14 @@ class ConstraintSet():
 if __name__ == "__main__":
     from dataload_helper import point_c_data, plug
     from visualize import plot_3d_points, plot_3d_points_segments
-    #pts = point_c_data(n_points=3, noise=0.01, rot_0=0.5, rot_1=1).points()
+    #pts = point_c_data(n_points=3, noise=0.01, rot_0=0.5, rot_1=0.5).points()
     pts = plug(index=3, segment=True).load()
-    #print("pts.shape")
-    #print(pts.shape)
+    print(pts[1])
     print("start fit")
     #constraint = PointConstraint_v2()
     constraint = PointConstraint_v4_FINAL()
-    params = constraint.fit(pts[1])
-    plot_3d_points_segments(L=pts, rest_pt=params['rest_pt'])
+    params = constraint.fit_h2(pts[1])
+    constraint = PointConstraint_v4_FINAL()
+    params = constraint.fit_hinf(pts[1])
+    #plot_3d_points_segments(L=pts, rest_pt=params['rest_pt'])
     #plot_3d_points_segments(L=pts, rest_pt=np.array([-0.31187662, -0.36479221, -0.03707742]))
