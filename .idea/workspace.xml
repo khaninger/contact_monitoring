@@ -1,49 +1,12 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
+  <component name="AutoImportSettings">
+    <option name="autoReloadType" value="SELECTIVE" />
+  </component>
   <component name="ChangeListManager">
-    <list default="true" id="5e30a276-57cd-4342-b669-c1f68d2a980c" name="Changes" comment="">
-      <change afterPath="$PROJECT_DIR$/.gitignore" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/constraint_id_test.ipynb" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/constraint_param_fit_test.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/data/clustering_video_plug_1.pickle" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/data/clustering_video_plug_2.pickle" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/data/clustering_video_plug_3.pickle" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/data/clustering_video_plug_less_1.pickle" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/data/clustering_video_plug_less_2.pickle" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/data/clustering_video_plug_less_3.pickle" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/data/clustering_video_plug_threading_2.pickle" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/data/clustering_video_plug_threading_3.pickle" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/data/video_rake_1.mp4" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/data/video_rake_1.pickle" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/data/video_rake_2.mp4" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/data/video_rake_2.pickle" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/data/video_rake_3.mp4" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/data/video_rake_3.pickle" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/data/video_rake_4.mp4" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/data/video_rake_4.pickle" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/data/video_rake_5.mp4" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/data/video_rake_5.pickle" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/.gitignore" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/.gitignore" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/contact_monitoring.iml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/contact_monitoring.iml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/misc.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/misc.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/vcs.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/vcs.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.ipynb_checkpoints/constraint_param_fit_test-checkpoint.ipynb" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/README.md" beforeDir="false" afterPath="$PROJECT_DIR$/README.md" afterDir="false" />
+    <list default="true" id="4996e4d5-555e-4ec5-a3d4-2a95c4043bd5" name="Changes" comment="Ad visualize.py">
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/constraint.py" beforeDir="false" afterPath="$PROJECT_DIR$/constraint.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/constraint_param_fit_test.ipynb" beforeDir="false" afterPath="$PROJECT_DIR$/constraint_param_fit_test.ipynb" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/data/Exp_Notes" beforeDir="false" afterPath="$PROJECT_DIR$/data/Exp_Notes" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/data/video_plug_1.p" beforeDir="false" afterPath="$PROJECT_DIR$/data/video_plug_1.pickle" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/data/video_plug_2.p" beforeDir="false" afterPath="$PROJECT_DIR$/data/video_plug_2.pickle" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/data/video_plug_3.p" beforeDir="false" afterPath="$PROJECT_DIR$/data/video_plug_3.pickle" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/data/video_plug_less_1.p" beforeDir="false" afterPath="$PROJECT_DIR$/data/video_plug_less_1.pickle" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/data/video_plug_less_2.p" beforeDir="false" afterPath="$PROJECT_DIR$/data/video_plug_less_2.pickle" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/data/video_plug_less_3.p" beforeDir="false" afterPath="$PROJECT_DIR$/data/video_plug_less_3.pickle" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/data/video_plug_threading_1.p" beforeDir="false" afterPath="$PROJECT_DIR$/data/video_plug_threading_1.pickle" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/data/video_plug_threading_2.p" beforeDir="false" afterPath="$PROJECT_DIR$/data/video_plug_threading_2.pickle" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/data/video_plug_threading_3.p" beforeDir="false" afterPath="$PROJECT_DIR$/data/video_plug_threading_3.pickle" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/dataload_helper.py" beforeDir="false" afterPath="$PROJECT_DIR$/dataload_helper.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/helper_fns.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/test" beforeDir="false" />
       <change beforePath="$PROJECT_DIR$/visualize.py" beforeDir="false" afterPath="$PROJECT_DIR$/visualize.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
