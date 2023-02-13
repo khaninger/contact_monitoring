@@ -18,7 +18,8 @@ class Constraint():
         loss = 0
         for data_pt in data:
             loss += ca.norm_2(self.violation(data_pt))
-            
+
+        loss += data.shape[0]*self.regularization()
         # get dec vars; x is symbolic decision vector of all params, lbx/ubx lower/upper bounds
         x, lbx, ubx = self.params.get_dec_vectors()
         x0 = self.params.get_x0()
@@ -134,7 +135,7 @@ class PointConstraint_v3(Constraint):
         #               'rest_pt': np.array([-0.31187662, -0.36479221, -0.03707742])}
 
         params_init = {'radius_1': np.array([0.5]),
-                       'rest_pt': np.array([0, 0, 0])}
+                       'rest_pt': np.array([-0.31187662, -0.36479221, -0.03707742])}
 
         Constraint.__init__(self, params_init)
 
@@ -142,22 +143,25 @@ class PointConstraint_v3(Constraint):
         print("DEBUG!!!")
         print(x.shape)
         loss = ca.fabs(self.params['radius_1'] - ca.exp(1+1000*ca.norm_2(x - self.params['rest_pt'])))
-        loss += 0.1 * (self.params['radius_1'])
+
         return loss
+    def regularization(self):
+        return 0.1 * (self.params['radius_1'])
 
 class PointConstraint_v4_FINAL(Constraint):
     # a point on the rigidly held object is fixed in world coordinates
     def __init__(self):
-        #params_init = {'radius_1': np.array([0.28]),
-        #               'rest_pt': np.array([-0.31187662, -0.36479221, -0.03707742])}
 
         params_init = {'radius_1': np.array([0.5]),
                        'rest_pt': np.array([0, 0, 0])}
 
         Constraint.__init__(self, params_init)
- 
+
+    def regularization(self):
+        return 0.2 * self.params['radius_1']
+
     def violation(self, x):
-        return self.params['radius_1'] - ca.norm_2(x - self.params['rest_pt'])
+        return self.params['radius_1'] - ca.exp(1+ca.norm_2(x - self.params['rest_pt']))
 
 class CableConstraint(Constraint):
     # a point is constrained to be a certain distance from a point in world coordinates
@@ -215,6 +219,31 @@ class Line(Constraint):
         #   -> ca.norm_2(self.params['rest_pt'][:3,i])==1 for i = 0;1;2  with slack!?
         #   -> ca.mtimes(self.params['rest_pt'][:3,i],self.params['rest_pt'][:3,j])==0 for i,j = 0,1; 0,2; 1,2 with slack?
         # -> restrict rest_plane[3,:2] to be 0?
+
+
+class DoublePointConstraint(Constraint):
+    # a point on the rigidly held object is fixed in world coordinates
+    def __init__(self):
+        params_init = {'pt_0': np.zeros(3),  # first contact point in the object frame, which changes wrt 'x'
+                       'pt_1': np.zeros(3),  # second contact point in the object frame, which changes wrt 'x'
+                       'plane_normal': np.array([1,0,0]),
+                       'plane_contact': np.array([.1])}  # resting position of the point contact in world coordinates
+
+        Constraint.__init__(self, params_init)
+
+        #constraints
+        ca.fabs(ca.norm_2(self.params['pt_0']-self.params['pt_1']) -.1)   # Distance of both contact points is 10cm
+        ca.norm2(self.params['plane_normal'] - 1)                 # length of norm is one
+
+        # violation
+        # dot product of plane normal and pt_i - plane_contact = 0
+        loss = ca.norm_0_mul(self.params['pt_0']-self.params['plane_contact']*self.params['plane_normal'],self.params['plane_normal'])
+        loss += ca.norm_0_mul(self.params['pt_1'] - self.params['plane_contact']*self.params['plane_normal'], self.params['plane_normal'])
+    def violation(self, x):
+        # in: x is the object pose in a 4x4 transformation matrix
+        # if h(x)=0 represents the constraint, violation is returning  h(x)
+        x_pt = x @ ca.vertcat(self.params['pt'], ca.SX(1))  # Transform 'pt' into world coordinates
+        return ca.norm_2(x_pt[:3] - self.params['rest_pt'])
         
 class ConstraintSet():
     def __init__(self, dataset):
@@ -245,14 +274,18 @@ class ConstraintSet():
 if __name__ == "__main__":
     from dataload_helper import point_c_data, plug
     from visualize import plot_3d_points, plot_3d_points_segments
-    #pts = point_c_data(n_points=3, noise=0.01, rot_0=0.5, rot_1=0.5).points()
-    pts = plug(index=3, segment=True).load()
-    print(pts[1])
-    print("start fit")
+    #pts = point_c_data(n_points=1, noise=0.01, rot_0=6.8, rot_1=0.05).points(radius=.28)[:,0,:]
+    #pts = plug(index=3, segment=True).load()
+
+    pts_1 = plug(index=1, segment=True).load()[1]
+    pts_2 = plug(index=2, segment=True).load()[1]
+    pts_3 = plug(index=3, segment=True).load()[1]
+    pts= np.vstack((pts_1, pts_2, pts_3))
     #constraint = PointConstraint_v2()
     constraint = PointConstraint_v4_FINAL()
-    params = constraint.fit_h2(pts[1])
-    constraint = PointConstraint_v4_FINAL()
-    params = constraint.fit_hinf(pts[1])
+    #params = constraint.fit_h2(pts[1])
+    #params = constraint.fit_hinf(pts[1])
+    params = constraint.fit_h2(pts)
+    #params = constraint.fit_hinf(pts)
+    plot_3d_points_segments(L=[pts], radius=params['radius_1'] , rest_pt=params['rest_pt'])
     #plot_3d_points_segments(L=pts, rest_pt=params['rest_pt'])
-    #plot_3d_points_segments(L=pts, rest_pt=np.array([-0.31187662, -0.36479221, -0.03707742]))
