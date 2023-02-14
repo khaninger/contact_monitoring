@@ -33,8 +33,13 @@ class Controller():
             constraint_mode = self.c_set.id_constraint(x, f)
             
 
-            
-        
+    def get_object_pose(self, rgbd):
+        pass
+
+    def def_grip2object_pose(self):
+        #1) grasp object -Save TCP
+        #2) scan object -> Save Object pose / TCP pose
+
 
 
 

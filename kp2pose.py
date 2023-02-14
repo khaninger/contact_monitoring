@@ -3,7 +3,7 @@ import numpy as np
 
 
 
-def find_T(A, B):
+def find_T(A, B, kp_delta_th = 0.005):
 
     assert A.shape == B.shape
     # get index of comparable keypoints
@@ -60,7 +60,15 @@ def find_T(A, B):
     T_A2B[:dim, :dim] = R
     T_A2B[:dim, dim] = t.flatten()
 
-    return T_A2B
+    # Check transform error
+    # delta is indicating that at least one keypoint from the trafo has a greater distance than th
+    _A = np.row_stack((A, np.ones(A.shape[1]).reshape(-1, 1).T))
+    A2B = T_A2B @ _A
+    delta_T_A2B = B-A2B[:3, :]
+    delta = (np.linalg.norm(delta_T_A2B, axis=0) > np.ones(A.shape[1]) * kp_delta_th).any()
+    #if delta:
+    #    print(np.linalg.norm(delta_T_A2B, axis=0))
+    return np.copy(T_A2B), delta
 
 def init_T(keypoint_array):
     """
