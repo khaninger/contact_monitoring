@@ -151,7 +151,7 @@ class rake(data):
                 dataset = _dataset
                 dataset_segments = _dataset_segments
                 print(
-                    f"Discarded {n_discard_opti} poses due to bad fit of kp_data, {n_dataset - n_discard_opti} poses remaining")
+                    f"Discarded {n_discard_opti} poses due to bad correspondence of kp_data, {n_dataset - n_discard_opti} poses remaining")
             else:
                 raise Exception("had to discard more than 50% of poses, there is something wrong with the dataset")
 
