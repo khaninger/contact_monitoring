@@ -2,6 +2,7 @@ import pickle
 import os
 import numpy as np
 from rotation_helpers import xyz_to_rotation
+import kp2pose
 
 class data():
 
@@ -92,12 +93,9 @@ class point_c_data:
         self.rest_pt = rest_pt
         self.noise_t = np.random.normal(0, noise, size=(3,n_points))
         self.noise_r = np.random.normal(0, noise, size=(3,))
-    def points(self):
-        pt = np.array([[0, 0, 0.5], [0, 0.01, 0.52], [0.02, -0.01, 0.49]])
+    def points(self, radius=.5):
+        pt = np.array([[0, 0, radius], [0, 0.01, 0.52], [0.02, -0.01, 0.49]])
         pt = np.transpose(pt[:self.n_points])
-        print("Debug")
-        print(pt)
-
         t_pts = []
         for x_rot in np.linspace(-self.rot_0/2, self.rot_0/2, 100):
             for y_rot in np.linspace(-self.rot_1/2, self.rot_1/2, 100):
@@ -117,34 +115,82 @@ class rake(data):
         self.directory += "rake_"
         self.path = self.directory + str(self.index) + ".pickle"
 
-    def load(self, center=False):
+    def load(self, center=False, pose=False, kp_delta_th=0.005):
         if os.path.isfile(self.path):
             dataset = np.array(self.load_data(self.path))
-            print(f"\nLoaded {len(dataset)} samples from rake dataset")
-            if center:
-                dataset = np.mean(dataset, axis=1)[:, None, :]
+            n_dataset = len(dataset)
+            print(f"\nLoaded {n_dataset} samples from rake dataset {self.index}")
+
+            dataset_len = 0
+            for init_kp_index in range(int(.1*n_dataset)):
+                n_discard = 0
+                kp_dim = 3
+                init_kp = dataset[init_kp_index,:,:kp_dim]
+                T_init = kp2pose.init_T(init_kp)
+                __dataset = []
+                __dataset_segments = []
+                for i in range(dataset.shape[0]):
+                    data_kp = dataset[i,:,:kp_dim]
+                    T_rake, delta = kp2pose.find_T(init_kp, data_kp, kp_delta_th=kp_delta_th)
+                    if not delta: # only append poses wher kp2kp transform results in per keypoint offset smaller than kp_delta_th
+                        if pose:
+                            __dataset.append(T_rake @ T_init)
+                            __dataset_segments.append(dataset[i, 0, -1])
+                        else:
+                            __dataset.append(dataset[i, :, :])
+                            __dataset_segments.append(dataset[i, 0, -1])
+                    else:
+                        n_discard += 1
+                if len(__dataset) > dataset_len:
+                    dataset_len = len(__dataset)
+                    n_discard_opti = np.copy(n_discard)
+                    _dataset_segments = np.array(__dataset_segments)
+                    _dataset = np.array(__dataset)
+
+            if _dataset.shape[0] > 0.5*dataset.shape[0]:
+                dataset = _dataset
+                dataset_segments = _dataset_segments
+                print(
+                    f"Discarded {n_discard_opti} poses due to bad correspondence of kp_data, {n_dataset - n_discard_opti} poses remaining")
+            else:
+                raise Exception("had to discard more than 50% of poses, there is something wrong with the dataset")
+
 
             #generate list of segments
             if self.segment:
-                dataset_segments = []
-                for segment in range(int(max(dataset[:, 0, -1])) + 1):
-                    dataset_segments.append(dataset[dataset[:, 0, -1] == segment, :, :3][:,0,:])
+                dataset_segmented = []
+                if pose:
+                    for segment in range(int(max(dataset_segments) + 1)):
+                        dataset_segmented.append(dataset[dataset_segments == segment, :, :])
+                else:
+                    for segment in range(int(max(dataset_segments) + 1)):
+                        dataset_segmented.append(dataset[dataset_segments == segment, :, :3][:,0,:])
+
                 print(
-                    f"Dataset contains {len(dataset_segments)} segments:")
+                    f"Dataset contains {len(dataset_segmented)} segments:")
                 try:
-                    print(f"Segment 1: {len(dataset_segments[0])} samples")
-                    print(f"Segment 2: {len(dataset_segments[1])} samples")
-                    print(f"Segment 3: {len(dataset_segments[2])} samples")
+                    print(f"Segment 1: {len(dataset_segmented[0])} samples")
+                    print(f"Segment 2: {len(dataset_segmented[1])} samples")
+                    print(f"Segment 3: {len(dataset_segmented[2])} samples")
                 except:
                     pass
 
-                dataset = dataset_segments
-            return dataset
+                dataset = dataset_segmented
+
+            if center and not pose and not self.segment:
+                dataset = np.mean(dataset, axis=1)
+
+
+            return dataset, dataset_segments
+
 
 
 
 if __name__ == "__main__":
-    pts = point_c_data(n_points=1).points()
-    print(np.array(pts).shape)
+    #pts = point_c_data(n_points=1).points()
+    #print(np.array(pts).shape)
+    for i in range(5):
+       dataset, segments = rake(index=i+1, segment=False).load(center=False, pose=True)
 
-
+    print(dataset.shape)
+    print(segments.shape)
