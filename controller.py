@@ -37,13 +37,12 @@ class Controller():
         # Get the TCP pose and forces from robot
         f = np.array(self.rob.get_tcp_force(wait=True))
         x_tcp = np.array(self.rob.getl(wait=True))
-        #print(f'Got robot data: \n  tcp {x_tcp}    force {f}')
+        print(f'Got robot data: \n  tcp {x_tcp}    force {f}')
         return x_tcp, f
 
     def get_object_data(self):
         # Get the object coordinates
         x_tcp, f = self.get_robot_data()
-        
         return x_obj, f
 
     def speedl(self):
@@ -81,7 +80,7 @@ if __name__ == '__main__':
     print("starting controller!!!")
     try:
         controller = Controller()
-        controller.speedl()
+        # controller.speedl()
+        controller.loop()
     finally:
         controller.stop()
-    #controller.loop()
