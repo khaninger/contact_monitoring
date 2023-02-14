@@ -17,7 +17,10 @@ class Controller():
 
         # Init robot etc
         self.init_robot()
+        self.loop()
 
+        self.tcp_to_obj = None # Pose of object in TCP frame
+        
     def load_constraints(self, c_file):
         with open(c_file) as f:
             self.c_set = pickle.load(f)
@@ -48,7 +51,12 @@ class Controller():
             sleep(0.1)
             #constraint_mode = self.c_set.id_constraint(x, f)
 
+            
+        
 
+    def def_grip2object_pose(self):
+        #1) grasp object -Save TCP
+        #2) scan object -> Save Object pose / TCP pose
 
 if __name__ == '__main__':
     print("starting controller")
