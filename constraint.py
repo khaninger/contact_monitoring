@@ -4,6 +4,7 @@ from decision_vars import DecisionVar, DecisionVarSet
 
 from scipy.spatial import ConvexHull
 from scipy.spatial.distance import cdist
+from rotation_helpers import rotvec_to_rotation
 
 class Constraint():
     def __init__(self, params_init):
@@ -77,13 +78,21 @@ class Constraint():
         # constraint violation for a single pose x
         raise NotImplementedError
 
-    def build_jac(self, x):
-        # jacobian evaluated at point x
-        #x_sym for pose
-        #h = violation(x_sym)
-        #self.jac_fn = ca.jacobian(h, x_sym)
-        #self.jac_pinv_fn = ca.pinv(...)
-        raise NotImplementedError
+    def get_jac(self):
+        # jacobian constructed at x_sym
+        if not self.jac:
+            x_sym = ca.SX.sym("x_sym",6)
+            R_sym = rotvec_to_rotation(x_sym[3:])
+            rot = ca.vertcat(R_sym, ca.SX(1,3))
+            pos = ca.vertcat(x_sym[:3], ca.SX(1))
+            T_sym = ca.horzcat(rot,pos)  # simbolic transformation matrix
+            h = violation(T_sym)
+            self.jac = ca.jacobian(h, x_sym)
+            self.jac_fn = ca.Function('self.jac_fn', [x_sym], [self.jac])
+            self.jac_pinv = ca.pinv(self.jac)
+            self.jac_pinv_fn = ca.Function('self.jac_pinv_fn', [x_sym], [self.jac_pinv])
+
+        return self.jac_fn, self.jac_pinv_fn
 
     def get_similarity(self, x, f):
         # IN: x is a numerical value for a pose
