@@ -22,23 +22,6 @@ class Constraint():
         for data_pt in data:
             loss += ca.norm_2(self.violation(data_pt))
         loss += data.shape[0]*self.regularization()
-<<<<<<< HEAD
-        # get dec vars; x is symbolic decision vector of all params, lbx/ubx lower/upper bounds
-        x, lbx, ubx = self.params.get_dec_vectors()
-        x0 = self.params.get_x0()
-        args = dict(x0=x0, lbx=lbx, ubx=ubx, p=None)
-        prob = dict(f=loss, x=x)
-        solver = ca.nlpsol('solver', 'ipopt', prob)
-        sol = solver(x0 = x0, lbx = lbx, ubx = ubx)
-        self.params.set_results(sol['x'])
-        print(self.params)
-        self.get_jac()
-        return self.params
- 
-    def fit_hinf(self, data):
-        # in: data is the trajectory that we measure from the demonstration
-=======
->>>>>>> cb42b501c99859f7c387b2dd909eb0b24f08bceb
 
         if h_inf:
             # add a slack variable which will bound the violation, and be minimized
