@@ -108,7 +108,7 @@ class point_c_data:
         return t_pts[index]
 
 class rake(data):
-    def __init__(self, index=1, clustered=False, segment=True):
+    def __init__(self, index=1, clustered=False, segment=False):
         self.segment=segment
         self.index = index
         data.__init__(self, clustered=clustered)
