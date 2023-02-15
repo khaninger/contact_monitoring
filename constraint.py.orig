@@ -4,7 +4,6 @@ from decision_vars import DecisionVar, DecisionVarSet
 
 from scipy.spatial import ConvexHull
 from scipy.spatial.distance import cdist
-from rotation_helpers import rotvec_to_rotation
 
 class Constraint():
     def __init__(self, params_init):
@@ -21,12 +20,11 @@ class Constraint():
 
         for data_pt in data:
             loss += ca.norm_2(self.violation(data_pt))
-
         loss += data.shape[0]*self.regularization()
 
         if h_inf:
             # add a slack variable which will bound the violation, and be minimized
-            self.params['slack'] = DecisionVar(x0 = [0.5], lb = [0.0], ub = [0.1])
+            self.params['slack'] = DecisionVar(x0 = [0.5], lb = [0.0], ub = [0.01])
             loss += data.shape[0]*self.params['slack']
             ineq_constraints = [ca.fabs(self.violation(d))-self.params['slack'] for d in data]
             
@@ -36,43 +34,29 @@ class Constraint():
         args = dict(x0=x0, lbx=lbx, ubx=ubx, p=None, lbg=-np.inf, ubg=np.zeros(len(ineq_constraints)))
         prob = dict(f=loss, x=x, g=ca.vertcat(*ineq_constraints))
         solver = ca.nlpsol('solver', 'ipopt', prob)
-
-        # solve, print and return
         sol = solver(x0 = x0, lbx = lbx, ubx = ubx)
         self.params.set_results(sol['x'])
         print(self.params)
-        #self.get_jac()
         return self.params
  
     def violation(self, x: object) -> object:
         # constraint violation for a single pose x
         raise NotImplementedError
 
-    def get_jac(self):
-        # jacobian constructed at x_sym
-        if not hasattr(self,"jac_fn"):
-            x_sym = ca.SX.sym("x_sym",6)
-            R_sym = rotvec_to_rotation(x_sym[3:])
-            rot = ca.vertcat(R_sym, ca.SX(1,3))
-            pos = ca.vertcat(x_sym[:3], ca.SX(1))
-            T_sym = ca.horzcat(rot,pos)  # simbolic transformation matrix
-            h = self.violation(T_sym)
-            self.jac = ca.jacobian(h, x_sym)
-            self.jac_fn = ca.Function('self.jac_fn', [x_sym], [self.jac])
-            self.jac_pinv = ca.pinv(self.jac)
-            self.jac_pinv_fn = ca.Function('self.jac_pinv_fn', [x_sym], [self.jac_pinv])
-
-        return self.jac_fn, self.jac_pinv_fn
+    def build_jac(self, x):
+        # jacobian evaluated at point x
+        #x_sym for pose
+        #h = violation(x_sym)
+        #self.jac_fn = ca.jacobian(h, x_sym)
+        #self.jac_pinv_fn = ca.pinv(...)
+        raise NotImplementedError
 
     def get_similarity(self, x, f):
         # IN: x is a numerical value for a pose
         # IN: f is the numerical value for measured force
         # TODO add the least squares residual calculation
         # TODO check x and f are same dim
-
         assert (x.shape == f.shape)
-        jac_fn = self.get_jac()
-        self.jac_fn()
         return ca.norm_2(f-self.jac_fn(x).T@(f@self.jac_pinv_fn(x))).full()
         raise NotImplementedError
 
@@ -134,8 +118,6 @@ class LineOnSurfaceConstraint(Constraint):
 
         return misalign+displace
 
-
-
 class DoublePointConstraint(Constraint):
     # a point on the rigidly held object is fixed in world coordinates
     def __init__(self):
@@ -169,23 +151,28 @@ class DoublePointConstraint2(Constraint):
                        'pt_1': np.array([-0.05, 0, 0]),
                        # second contact point in the object frame, which changes wrt 'x'
                        'plane_normal': np.array([1, 0, 0]),
-                       'd': np.array([1])}  # resting position of the point contact in world coordinates
+                       'd': np.array([.1])}  # resting position of the point contact in world coordinates
 
         Constraint.__init__(self, params_init)
 
     def regularization(self):
-        return ca.fabs(ca.norm_2(self.params['pt_0'] - self.params['pt_1']) - .1)\
-            +  ca.fabs(ca.norm_2(self.params['plane_normal']) - 1)
-        # length of norm is one
+        return (ca.fabs(
+            ca.norm_2(self.params['pt_0'] - self.params['pt_1']) - .1)  # Distance of both contact points is 10cm
+                + ca.fabs(ca.norm_2(self.params['plane_normal']) - 1))  # length of norm is one
 
     def violation(self, x):
         x_pt_0 = (x @ ca.vertcat(self.params['pt_0'], ca.SX(1)))[:3]
         x_pt_1 = (x @ ca.vertcat(self.params['pt_1'], ca.SX(1)))[:3]
-        plane_normal = self.params['plane_normal'] / ca.norm_2(self.params['plane_normal'])
-        delta_pt0 = ca.fabs(ca.dot(x_pt_0, plane_normal) - self.params['d'])
-        delta_pt1 = ca.fabs(ca.dot(x_pt_1, plane_normal) - self.params['d'])
-        return ca.vertcat(delta_pt0, delta_pt1)
-
+        # dot product of plane normal and pt_i - plane_contact = 0
+        loss = ca.vertcat(
+            x_pt_0[0] * self.params['plane_normal'][0] +
+            x_pt_0[1] * self.params['plane_normal'][1] +
+            x_pt_0[2] * self.params['plane_normal'][2] - self.params['d'],
+            x_pt_1[0] * self.params['plane_normal'][0] +
+            x_pt_1[1] * self.params['plane_normal'][1] +
+            x_pt_1[2] * self.params['plane_normal'][2] - self.params['d'],
+        )
+        return loss
 
 
 class ConstraintSet():
@@ -225,39 +212,39 @@ if __name__ == "__main__":
         pts_2 = plug(index=2, segment=True).load()[1]
         pts_3 = plug(index=3, segment=True).load()[1]
         pts_L = [pts_1, pts_2, pts_3]
+        pts= np.vstack((pts_1, pts_2, pts_3))
+        constraint = CableConstraint()
+        #params = constraint.fit(pts, h_inf=False)
+        #params = constraint.fit(pts_3)
+        #plot_3d_points_segments(L=[pts_3], radius=params['radius_1'], rest_pt=params['rest_pt'])
 
-        T=np.eye(4)
-
-        plug().save(specifier='T', T=T, index=1)
-
-        """
-        for i in range(3):
-            ind = i+1
-            pts = plug(index=ind, segment=True).load()[1]
-            constraint = CableConstraint()
-            params = constraint.fit(pts_3, h_inf=True)
-            plug().save(rest_pt=params['rest_pt'], radius=params['radius_1'], specifier='0', index=ind)
-        """
-
-        """
         for i in range(3):
             constraint = CableConstraint()
-            params = constraint.fit(pts_L[i], h_inf=True)
+            params = constraint.fit(pts_L[i])
             print(f"** Ground truth **\nradius_1:\n: {0.28}\nrest_pt:\n: {np.array([-0.31187662, -0.36479221, -0.03707742])}")
             plot_3d_points_segments(L=[pts_L[i]], radius=params['radius_1'] , rest_pt=params['rest_pt'], exp_n=i+1)
-        """
 
         #plot_3d_points_segments(L=pts, rest_pt=params['rest_pt'])
     else:
-        pose_data, segments, time = rake(index=3, segment=True).load(pose=True, kp_delta_th=0.005)
-        kp_data, segments, time = rake(index=3, segment=True).load(pose=False, kp_delta_th=0.005)
+        pts_1, segments, time = rake(index=5, segment=True).load(pose=True)
+        #pts_2 = rake(index=2, segment=True).load(pose=True)[1]
+        #pts_3 = rake(index=3, segment=True).load(pose=True)[1]
+        #pts_4 = rake(index=4, segment=True).load(pose=True)[1]
+        #pts_5 = rake(index=5, segment=True).load(pose=True)[1]
 
-        plot_x_pt_inX(L_pt=kp_data[1])
+        pts = pts_1[1]
+        print(pts.shape)
 
-        #constraint = DoublePointConstraint()
-        #params = constraint.fit(pose_data[1], h_inf=True)
-        #L_pt = [params['pt_0'], params['pt_1']]
-        #plane = [params['plane_normal'], params['d']]
-        #plot_x_pt_inX(L_pt=L_pt, X=pose_data[1], plane=plane)
+        constraint = DoublePointConstraint()
+<<<<<<< HEAD
+        #constraint = DoublePointConstraint2()
+        params = constraint.fit_hinf(pts)
+        #params = constraint.fit_h2(pts)
+        L_pt = [params['pt_0'], params['pt_1']]
+        plane = [params['pt_0'], params['d']]
+        plot_x_pt_inX(L_pt=L_pt, X=pts)
 
 
+=======
+        params = constraint.fit(pts_1)
+>>>>>>> refs/remotes/origin/main

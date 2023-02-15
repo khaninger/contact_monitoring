@@ -15,6 +15,9 @@ class data():
     def load_data(self, path):
         return pickle.load(open(path, "rb"))
 
+    def save_data(self, data, path):
+        pickle.dump(data, open(path, "wb"))
+
     """
     def play_video(self, path):
         print(path)
@@ -33,6 +36,26 @@ class plug(data):
         self.directory += "plug_"
         self.directory += self.experiment
         self.path = self.directory + str(self.index) + ".pickle"
+
+    def save(self, rest_pt=None, radius=None, overwrite=False, specifier='0', T=None, index=0):
+        if overwrite:
+            print("Delete old data")
+            dictionary = {}
+        else:
+            try:
+                path = os.getcwd() + "/data/" + "plug_constraint_" + str(index) + ".pickle"
+                dictionary = self.load_data(path=path)
+            except:
+                dictionary = {}
+
+        if specifier == 'T':
+            specifier_data = T
+        else:
+            specifier_data = {'rest_pt': rest_pt, 'radius': radius}
+        dictionary[specifier] = specifier_data
+        self.save_data(dictionary, path)
+        print(f"Saved dict ({dictionary}) for plug_constraint_{index} at {path}")
+
 
     def load(self):
         if os.path.isfile(self.path):
@@ -54,14 +77,6 @@ class plug(data):
 
                 dataset = dataset_segments
             return dataset
-    """
-    def video(self):
-        data.__init__(self, clustered=False)
-        self.directory += "plug_"
-        self.directory += self.experiment
-        self.path = self.directory + str(self.index) + ".mp4"
-        self.play_video(self.path)
-    """
 
     def random(self, rest_pt = np.array([0.1, 0.2, 0.3]), pt = np.array([0., 0., 0.5]), noise=0.01, rot_0=.4, rot_1=.2):
 
@@ -129,27 +144,30 @@ class rake(data):
                 T_init = kp2pose.init_T(init_kp)
                 __dataset = []
                 __dataset_segments = []
+                __dataset_time = []
                 for i in range(dataset.shape[0]):
                     data_kp = dataset[i,:,:kp_dim]
                     T_rake, delta = kp2pose.find_T(init_kp, data_kp, kp_delta_th=kp_delta_th)
                     if not delta: # only append poses wher kp2kp transform results in per keypoint offset smaller than kp_delta_th
                         if pose:
                             __dataset.append(T_rake @ T_init)
-                            __dataset_segments.append(dataset[i, 0, -1])
                         else:
                             __dataset.append(dataset[i, :, :])
-                            __dataset_segments.append(dataset[i, 0, -1])
+                        __dataset_segments.append(dataset[i, 0, -1])
+                        __dataset_time.append(dataset[i, 0, -2])
                     else:
                         n_discard += 1
                 if len(__dataset) > dataset_len:
                     dataset_len = len(__dataset)
                     n_discard_opti = np.copy(n_discard)
                     _dataset_segments = np.array(__dataset_segments)
+                    _dataset_time = np.array(__dataset_time)
                     _dataset = np.array(__dataset)
 
             if _dataset.shape[0] > 0.5*dataset.shape[0]:
                 dataset = _dataset
                 dataset_segments = _dataset_segments
+                dataset_time = _dataset_time
                 print(
                     f"Discarded {n_discard_opti} poses due to bad correspondence of kp_data, {n_dataset - n_discard_opti} poses remaining")
             else:
@@ -164,7 +182,7 @@ class rake(data):
                         dataset_segmented.append(dataset[dataset_segments == segment, :, :])
                 else:
                     for segment in range(int(max(dataset_segments) + 1)):
-                        dataset_segmented.append(dataset[dataset_segments == segment, :, :3][:,0,:])
+                        dataset_segmented.append(dataset[dataset_segments == segment, :, :3])
 
                 print(
                     f"Dataset contains {len(dataset_segmented)} segments:")
@@ -181,7 +199,7 @@ class rake(data):
                 dataset = np.mean(dataset, axis=1)
 
 
-            return dataset, dataset_segments
+            return dataset, dataset_segments, dataset_time
 
 
 def max_dist(data):
@@ -204,11 +222,12 @@ def max_dist(data):
     return np.linalg.norm(hullpoints[bestpair[0]] - hullpoints[bestpair[1]])
 
 
+
 if __name__ == "__main__":
     #pts = point_c_data(n_points=1).points()
     #print(np.array(pts).shape)
     for i in range(5):
-       dataset, segments = rake(index=i+1, segment=False).load(center=False, pose=True)
+       dataset, segments, time = rake(index=i+1, segment=True).load(center=False, pose=False, kp_delta_th=0.005)
 
-    print(dataset.shape)
-    print(segments.shape)
+
+    print(dataset[1].shape)

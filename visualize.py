@@ -73,6 +73,48 @@ def plot_3d_points_segments(L, rest_pt=np.array([-0.31187662, -0.36479221, -0.03
     ax.legend()
     plt.show()
 
+def plot_x_pt_inX(L_pt, X=None, plane=None):
+    colors = ['b', 'g', 'm', 'y']
+    labels = ['pt_0', 'pt_1', 'pt_2']
+
+    fig = plt.figure(figsize=(14, 10), dpi=80)
+    ax = fig.add_subplot(111, projection='3d')
+    #set_axes_equal(ax)
+
+    if type(X) is not type(None):
+        for T in X:
+            for i, pt in enumerate(L_pt):
+                point = (T @ np.append(pt,0).T)[:3]
+                ax.scatter(point[0], point[1], point[2], color=colors[i])
+    else:
+
+        for pts in L_pt:
+            print("pts")
+            print(pts)
+            for i, point in enumerate(pts):
+                ax.scatter(point[0], point[1], point[2], color=colors[i])
+
+    if type(plane) is not type(None):
+        a, b, c = list(plane[0])
+        d = plane[1]
+        # Define x, y range
+        x_range = np.linspace(-1, 1, 20)
+        y_range = np.linspace(-1, 1, 20)
+        x, y = np.meshgrid(x_range, y_range)
+
+        # Solve for z using plane equation
+        z = (d - a * x - b * y) / c
+
+        # Plot wireframe
+        ax.plot_wireframe(x, y, z)
+
+    # Set labels and title
+    ax.set_xlabel('X')
+    ax.set_ylabel('Y')
+    ax.set_zlabel('Z')
+
+    ax.set_title(f"pt in world coordinates")
+    plt.show()
 def plot_distance(L,rest_pt):
     if L[0].shape == (4, 4):
         distances = np.array([np.linalg.norm(arr[:3, 3]-rest_pt) for arr in L])

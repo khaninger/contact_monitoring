@@ -12,3 +12,12 @@ plug_threading_ exp: first [-0.31187662, -0.36479221, -0.03707742]; second [-0.2
 radius r in [m]
 plug: 0.28
 plug_threading_ exp: first 0.28; second 0.14
+
+
+
+
+cable constraint data in plug_constraint_X.pickle files contains dict of dicts of the form
+dict = { 'specifier_X': {'rest_pt':(3,1), 'radius':(1,)}, 'specifier_Y': {...}, ...}
+
+example:
+{'0': {'rest_pt': array([-0.29914596, -0.40476034, -0.00643917]), 'radius': array(0.23926736)}}
