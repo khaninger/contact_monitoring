@@ -15,6 +15,9 @@ class data():
     def load_data(self, path):
         return pickle.load(open(path, "rb"))
 
+    def save_data(self, data, path):
+        pickle.dump(data, open(path, "wb"))
+
     """
     def play_video(self, path):
         print(path)
@@ -33,6 +36,22 @@ class plug(data):
         self.directory += "plug_"
         self.directory += self.experiment
         self.path = self.directory + str(self.index) + ".pickle"
+
+    def save(self, rest_pt, radius, overwrite=False, specifier='0', index=0):
+        if overwrite:
+            print("Delete old data")
+            dictionary = {}
+        else:
+            try:
+                path = os.getcwd() + "/data/" + "plug_constraint_" + str(index) + ".pickle"
+                dictionary = self.load_data(path=path)
+            except:
+                dictionary = {}
+        specifier_data = {'rest_pt': rest_pt, 'radius': radius}
+        dictionary[specifier] = specifier_data
+        self.save_data(dictionary, path)
+        print(f"Saved dict ({dictionary}) for plug_constraint_{index} at {path}")
+
 
     def load(self):
         if os.path.isfile(self.path):
@@ -54,14 +73,6 @@ class plug(data):
 
                 dataset = dataset_segments
             return dataset
-    """
-    def video(self):
-        data.__init__(self, clustered=False)
-        self.directory += "plug_"
-        self.directory += self.experiment
-        self.path = self.directory + str(self.index) + ".mp4"
-        self.play_video(self.path)
-    """
 
     def random(self, rest_pt = np.array([0.1, 0.2, 0.3]), pt = np.array([0., 0., 0.5]), noise=0.01, rot_0=.4, rot_1=.2):
 
@@ -167,7 +178,7 @@ class rake(data):
                         dataset_segmented.append(dataset[dataset_segments == segment, :, :])
                 else:
                     for segment in range(int(max(dataset_segments) + 1)):
-                        dataset_segmented.append(dataset[dataset_segments == segment, :, :3][:,0,:])
+                        dataset_segmented.append(dataset[dataset_segments == segment, :, :3])
 
                 print(
                     f"Dataset contains {len(dataset_segmented)} segments:")
@@ -207,15 +218,12 @@ def max_dist(data):
     return np.linalg.norm(hullpoints[bestpair[0]] - hullpoints[bestpair[1]])
 
 
+
 if __name__ == "__main__":
     #pts = point_c_data(n_points=1).points()
     #print(np.array(pts).shape)
     for i in range(5):
-       dataset, segments, time = rake(index=i+1, segment=False).load(center=False, pose=True, kp_delta_th=0.004)
+       dataset, segments, time = rake(index=i+1, segment=True).load(center=False, pose=False, kp_delta_th=0.005)
 
 
-    print(dataset.shape)
-    print(segments.shape)
-    print(time.shape)
-
-    print(time)
+    print(dataset[1].shape)

@@ -26,7 +26,7 @@ class Constraint():
 
         if h_inf:
             # add a slack variable which will bound the violation, and be minimized
-            self.params['slack'] = DecisionVar(x0 = [0.5], lb = [0.0], ub = [0.01])
+            self.params['slack'] = DecisionVar(x0 = [0.5], lb = [0.0], ub = [0.1])
             loss += data.shape[0]*self.params['slack']
             ineq_constraints = [ca.fabs(self.violation(d))-self.params['slack'] for d in data]
             
@@ -174,16 +174,16 @@ class DoublePointConstraint2(Constraint):
         Constraint.__init__(self, params_init)
 
     def regularization(self):
-        return (ca.fabs(
-            ca.norm_2(self.params['pt_0'] - self.params['pt_1']) - .1)  # Distance of both contact points is 10cm
-                + ca.fabs(ca.norm_2(self.params['plane_normal']) - 1))  # length of norm is one
+        return ca.fabs(ca.norm_2(self.params['pt_0'] - self.params['pt_1']) - .1)\
+            +  ca.fabs(ca.norm_2(self.params['plane_normal']) - 1)
+        # length of norm is one
 
     def violation(self, x):
         x_pt_0 = (x @ ca.vertcat(self.params['pt_0'], ca.SX(1)))[:3]
         x_pt_1 = (x @ ca.vertcat(self.params['pt_1'], ca.SX(1)))[:3]
-        plane_normal = self.params['plane_normal'] / ca.fabs(self.params['plane_normal'])
-        delta_pt0 = ca.fabs(ca.dot(x_pt_0, plane_normal) - self.params['d']) +0.001
-        delta_pt1 = ca.fabs(ca.dot(x_pt_1, plane_normal) - self.params['d']) +0.001
+        plane_normal = self.params['plane_normal'] / ca.norm_2(self.params['plane_normal'])
+        delta_pt0 = ca.fabs(ca.dot(x_pt_0, plane_normal) - self.params['d'])
+        delta_pt1 = ca.fabs(ca.dot(x_pt_1, plane_normal) - self.params['d'])
         return ca.vertcat(delta_pt0, delta_pt1)
 
 
@@ -218,42 +218,40 @@ if __name__ == "__main__":
     from dataload_helper import point_c_data, plug, rake
     from visualize import plot_x_pt_inX, plot_3d_points_segments
 
-    cable = False
+    cable = True
 
     if cable:
         pts_1 = plug(index=1, segment=True).load()[1]
         pts_2 = plug(index=2, segment=True).load()[1]
         pts_3 = plug(index=3, segment=True).load()[1]
         pts_L = [pts_1, pts_2, pts_3]
-        pts= np.vstack((pts_1, pts_2, pts_3))
-        constraint = CableConstraint()
-        #params = constraint.fit_h2(pts)
-        #params = constraint.fit_hinf(pts_3)
-        #plot_3d_points_segments(L=[pts_3], radius=params['radius_1'], rest_pt=params['rest_pt'])
 
+        for i in range(3):
+            ind = i+1
+            pts = plug(index=ind, segment=True).load()[1]
+            constraint = CableConstraint()
+            params = constraint.fit(pts_3, h_inf=True)
+            plug().save(rest_pt=params['rest_pt'], radius=params['radius_1'], specifier='0', index=ind)
+
+        """
         for i in range(3):
             constraint = CableConstraint()
             params = constraint.fit(pts_L[i], h_inf=True)
             print(f"** Ground truth **\nradius_1:\n: {0.28}\nrest_pt:\n: {np.array([-0.31187662, -0.36479221, -0.03707742])}")
             plot_3d_points_segments(L=[pts_L[i]], radius=params['radius_1'] , rest_pt=params['rest_pt'], exp_n=i+1)
+        """
 
         #plot_3d_points_segments(L=pts, rest_pt=params['rest_pt'])
     else:
-        pts_1, segments, time = rake(index=5, segment=True).load(pose=True)
-        #pts_2 = rake(index=2, segment=True).load(pose=True)[1]
-        #pts_3 = rake(index=3, segment=True).load(pose=True)[1]
-        #pts_4 = rake(index=4, segment=True).load(pose=True)[1]
-        #pts_5 = rake(index=5, segment=True).load(pose=True)[1]
+        pose_data, segments, time = rake(index=3, segment=True).load(pose=True, kp_delta_th=0.005)
+        kp_data, segments, time = rake(index=3, segment=True).load(pose=False, kp_delta_th=0.005)
 
-        pts = pts_1[1]
-        print(pts.shape)
+        plot_x_pt_inX(L_pt=kp_data[1])
 
-        constraint = DoublePointConstraint2()
-        #constraint = DoublePointConstraint2()
-        params = constraint.fit(pts, h_inf=True)
-        #params = constraint.fit_h2(pts)
-        L_pt = [params['pt_0'], params['pt_1']]
-        plane = [params['plane_normal'], params['d']]
-        plot_x_pt_inX(L_pt=L_pt, X=pts, plane=plane)
+        #constraint = DoublePointConstraint()
+        #params = constraint.fit(pose_data[1], h_inf=True)
+        #L_pt = [params['pt_0'], params['pt_1']]
+        #plane = [params['plane_normal'], params['d']]
+        #plot_x_pt_inX(L_pt=L_pt, X=pose_data[1], plane=plane)
 
 
