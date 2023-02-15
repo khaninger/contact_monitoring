@@ -73,17 +73,26 @@ def plot_3d_points_segments(L, rest_pt=np.array([-0.31187662, -0.36479221, -0.03
     ax.legend()
     plt.show()
 
-def plot_x_pt_inX(L_pt, X, plane=None):
-    colors = ['b', 'g', 'm']
+def plot_x_pt_inX(L_pt, X=None, plane=None):
+    colors = ['b', 'g', 'm', 'y']
     labels = ['pt_0', 'pt_1', 'pt_2']
 
     fig = plt.figure(figsize=(14, 10), dpi=80)
     ax = fig.add_subplot(111, projection='3d')
     #set_axes_equal(ax)
-    for T in X:
-        for i, pt in enumerate(L_pt):
-            point = (T @ np.append(pt,0).T)[:3]
-            ax.scatter(point[0], point[1], point[2], color=colors[i])
+
+    if type(X) is not type(None):
+        for T in X:
+            for i, pt in enumerate(L_pt):
+                point = (T @ np.append(pt,0).T)[:3]
+                ax.scatter(point[0], point[1], point[2], color=colors[i])
+    else:
+
+        for pts in L_pt:
+            print("pts")
+            print(pts)
+            for i, point in enumerate(pts):
+                ax.scatter(point[0], point[1], point[2], color=colors[i])
 
     if type(plane) is not type(None):
         a, b, c = list(plane[0])
