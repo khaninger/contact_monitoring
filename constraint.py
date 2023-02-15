@@ -4,6 +4,7 @@ from decision_vars import DecisionVar, DecisionVarSet
 
 from scipy.spatial import ConvexHull
 from scipy.spatial.distance import cdist
+from rotation_helpers import rotvec_to_rotation
 
 class Constraint():
     def __init__(self, params_init):
@@ -40,26 +41,38 @@ class Constraint():
         sol = solver(x0 = x0, lbx = lbx, ubx = ubx)
         self.params.set_results(sol['x'])
         print(self.params)
+        self.get_jac()
         return self.params
  
     def violation(self, x: object) -> object:
         # constraint violation for a single pose x
         raise NotImplementedError
 
-    def build_jac(self, x):
-        # jacobian evaluated at point x
-        #x_sym for pose
-        #h = violation(x_sym)
-        #self.jac_fn = ca.jacobian(h, x_sym)
-        #self.jac_pinv_fn = ca.pinv(...)
-        raise NotImplementedError
+    def get_jac(self):
+        # jacobian constructed at x_sym
+        if not self.jac_fn:
+            x_sym = ca.SX.sym("x_sym",6)
+            R_sym = rotvec_to_rotation(x_sym[3:])
+            rot = ca.vertcat(R_sym, ca.SX(1,3))
+            pos = ca.vertcat(x_sym[:3], ca.SX(1))
+            T_sym = ca.horzcat(rot,pos)  # simbolic transformation matrix
+            h = self.violation(T_sym)
+            self.jac = ca.jacobian(h, x_sym)
+            self.jac_fn = ca.Function('self.jac_fn', [x_sym], [self.jac])
+            self.jac_pinv = ca.pinv(self.jac)
+            self.jac_pinv_fn = ca.Function('self.jac_pinv_fn', [x_sym], [self.jac_pinv])
+
+        return self.jac_fn, self.jac_pinv_fn
 
     def get_similarity(self, x, f):
         # IN: x is a numerical value for a pose
         # IN: f is the numerical value for measured force
         # TODO add the least squares residual calculation
         # TODO check x and f are same dim
+
         assert (x.shape == f.shape)
+        jac_fn = self.get_jac()
+        self.jac_fn()
         return ca.norm_2(f-self.jac_fn(x).T@(f@self.jac_pinv_fn(x))).full()
         raise NotImplementedError
 
