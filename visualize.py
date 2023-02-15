@@ -73,6 +73,19 @@ def plot_3d_points_segments(L, rest_pt=np.array([-0.31187662, -0.36479221, -0.03
     ax.legend()
     plt.show()
 
+def plot_x_pt_inX(L_pt, X):
+    colors = ['b', 'g', 'm']
+    labels = ['pt_0', 'pt_1', 'pt_2']
+
+    fig = plt.figure(figsize=(14, 10), dpi=80)
+    ax = fig.add_subplot(111, projection='3d')
+    #set_axes_equal(ax)
+    for T in X:
+        for i, pt in enumerate(L_pt):
+            point = (T @ np.append(pt,0).T)[:3]
+            ax.scatter(point[0], point[1], point[2], color=colors[i])
+    ax.set_title(f"pt in world coordinates")
+    plt.show()
 def plot_distance(L,rest_pt):
     if L[0].shape == (4, 4):
         distances = np.array([np.linalg.norm(arr[:3, 3]-rest_pt) for arr in L])
