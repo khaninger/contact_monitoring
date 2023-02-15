@@ -226,12 +226,18 @@ if __name__ == "__main__":
         pts_3 = plug(index=3, segment=True).load()[1]
         pts_L = [pts_1, pts_2, pts_3]
 
+        T=np.eye(4)
+
+        plug().save(specifier='T', T=T, index=1)
+
+        """
         for i in range(3):
             ind = i+1
             pts = plug(index=ind, segment=True).load()[1]
             constraint = CableConstraint()
             params = constraint.fit(pts_3, h_inf=True)
             plug().save(rest_pt=params['rest_pt'], radius=params['radius_1'], specifier='0', index=ind)
+        """
 
         """
         for i in range(3):
