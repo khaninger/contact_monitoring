@@ -93,7 +93,7 @@ position = x[:3,-1]
 eu_pose = ca.vertcat(position, rotation_to_euler(rot_matrix))
 print(eu_pose.shape)
 
-rot_pose = eulerpose_to_rotpose(eu_pose)
+#rot_pose = eulerpose_to_rotpose(eu_pose)
 
 #print(similarity(dataset[0],f))
 
