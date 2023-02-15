@@ -37,7 +37,7 @@ class plug(data):
         self.directory += self.experiment
         self.path = self.directory + str(self.index) + ".pickle"
 
-    def save(self, rest_pt, radius, overwrite=False, specifier='0', index=0):
+    def save(self, rest_pt=None, radius=None, overwrite=False, specifier='0', T=None, index=0):
         if overwrite:
             print("Delete old data")
             dictionary = {}
@@ -47,7 +47,11 @@ class plug(data):
                 dictionary = self.load_data(path=path)
             except:
                 dictionary = {}
-        specifier_data = {'rest_pt': rest_pt, 'radius': radius}
+
+        if specifier == 'T':
+            specifier_data = T
+        else:
+            specifier_data = {'rest_pt': rest_pt, 'radius': radius}
         dictionary[specifier] = specifier_data
         self.save_data(dictionary, path)
         print(f"Saved dict ({dictionary}) for plug_constraint_{index} at {path}")
