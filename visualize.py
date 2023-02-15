@@ -73,7 +73,7 @@ def plot_3d_points_segments(L, rest_pt=np.array([-0.31187662, -0.36479221, -0.03
     ax.legend()
     plt.show()
 
-def plot_x_pt_inX(L_pt, X):
+def plot_x_pt_inX(L_pt, X, plane=None):
     colors = ['b', 'g', 'm']
     labels = ['pt_0', 'pt_1', 'pt_2']
 
@@ -84,6 +84,26 @@ def plot_x_pt_inX(L_pt, X):
         for i, pt in enumerate(L_pt):
             point = (T @ np.append(pt,0).T)[:3]
             ax.scatter(point[0], point[1], point[2], color=colors[i])
+
+    if type(plane) is not type(None):
+        a, b, c = list(plane[0])
+        d = plane[1]
+        # Define x, y range
+        x_range = np.linspace(-1, 1, 20)
+        y_range = np.linspace(-1, 1, 20)
+        x, y = np.meshgrid(x_range, y_range)
+
+        # Solve for z using plane equation
+        z = (d - a * x - b * y) / c
+
+        # Plot wireframe
+        ax.plot_wireframe(x, y, z)
+
+    # Set labels and title
+    ax.set_xlabel('X')
+    ax.set_ylabel('Y')
+    ax.set_zlabel('Z')
+
     ax.set_title(f"pt in world coordinates")
     plt.show()
 def plot_distance(L,rest_pt):

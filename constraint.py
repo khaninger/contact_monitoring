@@ -41,7 +41,7 @@ class Constraint():
         sol = solver(x0 = x0, lbx = lbx, ubx = ubx)
         self.params.set_results(sol['x'])
         print(self.params)
-        self.get_jac()
+        #self.get_jac()
         return self.params
  
     def violation(self, x: object) -> object:
@@ -50,7 +50,7 @@ class Constraint():
 
     def get_jac(self):
         # jacobian constructed at x_sym
-        if not self.jac_fn:
+        if not hasattr(self,"jac_fn"):
             x_sym = ca.SX.sym("x_sym",6)
             R_sym = rotvec_to_rotation(x_sym[3:])
             rot = ca.vertcat(R_sym, ca.SX(1,3))
@@ -169,7 +169,7 @@ class DoublePointConstraint2(Constraint):
                        'pt_1': np.array([-0.05, 0, 0]),
                        # second contact point in the object frame, which changes wrt 'x'
                        'plane_normal': np.array([1, 0, 0]),
-                       'd': np.array([.1])}  # resting position of the point contact in world coordinates
+                       'd': np.array([1])}  # resting position of the point contact in world coordinates
 
         Constraint.__init__(self, params_init)
 
@@ -181,16 +181,11 @@ class DoublePointConstraint2(Constraint):
     def violation(self, x):
         x_pt_0 = (x @ ca.vertcat(self.params['pt_0'], ca.SX(1)))[:3]
         x_pt_1 = (x @ ca.vertcat(self.params['pt_1'], ca.SX(1)))[:3]
-        # dot product of plane normal and pt_i - plane_contact = 0
-        loss = ca.vertcat(
-            x_pt_0[0] * self.params['plane_normal'][0] +
-            x_pt_0[1] * self.params['plane_normal'][1] +
-            x_pt_0[2] * self.params['plane_normal'][2] - self.params['d'],
-            x_pt_1[0] * self.params['plane_normal'][0] +
-            x_pt_1[1] * self.params['plane_normal'][1] +
-            x_pt_1[2] * self.params['plane_normal'][2] - self.params['d'],
-        )
-        return loss
+        plane_normal = self.params['plane_normal'] / ca.fabs(self.params['plane_normal'])
+        delta_pt0 = ca.fabs(ca.dot(x_pt_0, plane_normal) - self.params['d']) +0.001
+        delta_pt1 = ca.fabs(ca.dot(x_pt_1, plane_normal) - self.params['d']) +0.001
+        return ca.vertcat(delta_pt0, delta_pt1)
+
 
 
 class ConstraintSet():
@@ -238,7 +233,7 @@ if __name__ == "__main__":
 
         for i in range(3):
             constraint = CableConstraint()
-            params = constraint.fit_hinf(pts_L[i])
+            params = constraint.fit(pts_L[i], h_inf=True)
             print(f"** Ground truth **\nradius_1:\n: {0.28}\nrest_pt:\n: {np.array([-0.31187662, -0.36479221, -0.03707742])}")
             plot_3d_points_segments(L=[pts_L[i]], radius=params['radius_1'] , rest_pt=params['rest_pt'], exp_n=i+1)
 
@@ -253,12 +248,12 @@ if __name__ == "__main__":
         pts = pts_1[1]
         print(pts.shape)
 
-        constraint = DoublePointConstraint()
+        constraint = DoublePointConstraint2()
         #constraint = DoublePointConstraint2()
-        params = constraint.fit_hinf(pts)
+        params = constraint.fit(pts, h_inf=True)
         #params = constraint.fit_h2(pts)
         L_pt = [params['pt_0'], params['pt_1']]
-        plane = [params['pt_0'], params['d']]
-        plot_x_pt_inX(L_pt=L_pt, X=pts)
+        plane = [params['plane_normal'], params['d']]
+        plot_x_pt_inX(L_pt=L_pt, X=pts, plane=plane)
 
 
