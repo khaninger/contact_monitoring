@@ -30,6 +30,7 @@ class Constraint():
         sol = solver(x0 = x0, lbx = lbx, ubx = ubx)
         self.params.set_results(sol['x'])
         print(self.params)
+        self.get_jac()
         return self.params
  
     def fit_hinf(self, data):
@@ -56,6 +57,7 @@ class Constraint():
         sol = solver(x0 = x0, lbx = lbx, ubx = ubx)
         self.params.set_results(sol['x'])
         print(self.params)
+        self.get_jac()
         return self.params
 
     def max_dist(self, data):
@@ -84,13 +86,13 @@ class Constraint():
 
     def get_jac(self):
         # jacobian constructed at x_sym
-        if not self.jac:
+        if not self.jac_fn:
             x_sym = ca.SX.sym("x_sym",6)
             R_sym = rotvec_to_rotation(x_sym[3:])
             rot = ca.vertcat(R_sym, ca.SX(1,3))
             pos = ca.vertcat(x_sym[:3], ca.SX(1))
             T_sym = ca.horzcat(rot,pos)  # simbolic transformation matrix
-            h = violation(T_sym)
+            h = self.violation(T_sym)
             self.jac = ca.jacobian(h, x_sym)
             self.jac_fn = ca.Function('self.jac_fn', [x_sym], [self.jac])
             self.jac_pinv = ca.pinv(self.jac)
@@ -103,7 +105,10 @@ class Constraint():
         # IN: f is the numerical value for measured force
         # TODO add the least squares residual calculation
         # TODO check x and f are same dim
+
         assert (x.shape == f.shape)
+        jac_fn = self.get_jac()
+        self.jac_fn()
         return ca.norm_2(f-self.jac_fn(x).T@(f@self.jac_pinv_fn(x))).full()
         raise NotImplementedError
 

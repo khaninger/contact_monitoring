@@ -1,8 +1,12 @@
 import numpy as np
 import casadi as ca
 import matplotlib as plt
-from rotation_helpers import rotvec_to_rotation
 
+from rotation_helpers import *
+from dataload_helper import rake
+
+
+dataset, segments = rake().load(center=False, pose=True)
 # cable constraint: a point is constrained to be a certain distance from a point in world coordinates
 
 def h_cable(x):
@@ -45,19 +49,60 @@ def double_point_constraint(x):
     )
     return loss
 
-def get_jacobian(constraint_type):
+def get_jacobian(str):
     x_sym = ca.SX.sym('x_sym', 6)
     R_sym = rotvec_to_rotation(x_sym[3:])
     rot = ca.vertcat(R_sym, ca.SX(1,3))
     pos = ca.vertcat(x_sym[:3], ca.SX(1))
     T_sym = ca.horzcat(rot,pos)
-    h = constraint_type(T_sym)
+    if str == 'cable':
+        h = h_cable(T_sym)
+    elif str == 'line':
+        h = line_on_surface(T_sym)
+    elif str == 'double':
+        h = double_point_constraint(T_sym)
+    else:
+        print('No constraint found in the library')
     jac = ca.jacobian(h,x_sym)
     jac_fn = ca.Function('jac_fn', [x_sym], [jac])
     jac_pinv = ca.pinv(jac)
     jac_pinv_fn = ca.Function('jac_pinv_fn', [x_sym], [jac_pinv])
 
     return jac_fn, jac_pinv_fn
+
+def similarity(x,f):
+
+    # IN: f is a numerical value for measured force
+    # IN: x is a numerical value for a pose (4,4) transformation matrix
+    rot_matrix = x[:3,:3]
+    position = x[:3,-1]
+    eu_pose = ca.vertcat(position, rotation_to_euler(rot_matrix))
+    rot_pose = eulerpose_to_rotpose(eu_pose)
+    jac_fn = get_jacobian('cable')[0]
+    jac_pinv_fn = get_jacobian('cable')[1]
+
+
+    return  ca.norm_2(f-jac_fn(rot_pose).T@(f@jac_pinv_fn(rot_pose)))
+
+
+f = np.array([2,3,4,5,0,5])
+
+x = dataset[0]
+rot_matrix = x[:3,:3]
+position = x[:3,-1]
+eu_pose = ca.vertcat(position, rotation_to_euler(rot_matrix))
+print(eu_pose.shape)
+
+rot_pose = eulerpose_to_rotpose(eu_pose)
+
+#print(similarity(dataset[0],f))
+
+
+
+
+
+
+
 
 
 
