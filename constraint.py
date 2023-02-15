@@ -164,7 +164,7 @@ class DoublePointConstraint(Constraint):
         params_init = {'pt_0': np.array([0.05,0,0]),  # first contact point in the object frame, which changes wrt 'x'
                        'pt_1': np.array([-0.05,0,0]),  # second contact point in the object frame, which changes wrt 'x'
                        'plane_normal': np.array([1,0,0]),
-                       'plane_contact': np.array([.1])}  # resting position of the point contact in world coordinates
+                       'd': np.array([.1])}  # resting position of the point contact in world coordinates
 
         Constraint.__init__(self, params_init)
 
@@ -176,12 +176,45 @@ class DoublePointConstraint(Constraint):
         x_pt_0 = (x @ ca.vertcat(self.params['pt_0'], ca.SX(1)))[:3]
         x_pt_1 = (x @ ca.vertcat(self.params['pt_1'], ca.SX(1)))[:3]
         # dot product of plane normal and pt_i - plane_contact = 0
+        point_on_plane = self.params['d'] * self.params['plane_normal']
         loss = ca.vertcat(
-            ca.dot(x_pt_0 - (self.params['plane_contact'] * self.params['plane_normal']), self.params['plane_normal']),
-            ca.dot(x_pt_1 - (self.params['plane_contact'] * self.params['plane_normal']), self.params['plane_normal'])
+            ca.dot((x_pt_0 - point_on_plane), self.params['plane_normal']),
+            ca.dot((x_pt_1 - point_on_plane), self.params['plane_normal'])
             )
         return loss
-        
+
+
+class DoublePointConstraint2(Constraint):
+    # a point on the rigidly held object is fixed in world coordinates
+    def __init__(self):
+        params_init = {'pt_0': np.array([0.05, 0, 0]),  # first contact point in the object frame, which changes wrt 'x'
+                       'pt_1': np.array([-0.05, 0, 0]),
+                       # second contact point in the object frame, which changes wrt 'x'
+                       'plane_normal': np.array([1, 0, 0]),
+                       'd': np.array([.1])}  # resting position of the point contact in world coordinates
+
+        Constraint.__init__(self, params_init)
+
+    def regularization(self):
+        return (ca.fabs(
+            ca.norm_2(self.params['pt_0'] - self.params['pt_1']) - .1)  # Distance of both contact points is 10cm
+                + ca.fabs(ca.norm_2(self.params['plane_normal']) - 1))  # length of norm is one
+
+    def violation(self, x):
+        x_pt_0 = (x @ ca.vertcat(self.params['pt_0'], ca.SX(1)))[:3]
+        x_pt_1 = (x @ ca.vertcat(self.params['pt_1'], ca.SX(1)))[:3]
+        # dot product of plane normal and pt_i - plane_contact = 0
+        loss = ca.vertcat(
+            x_pt_0[0] * self.params['plane_normal'][0] +
+            x_pt_0[1] * self.params['plane_normal'][1] +
+            x_pt_0[2] * self.params['plane_normal'][2] - self.params['d'],
+            x_pt_1[0] * self.params['plane_normal'][0] +
+            x_pt_1[1] * self.params['plane_normal'][1] +
+            x_pt_1[2] * self.params['plane_normal'][2] - self.params['d'],
+        )
+        return loss
+
+
 class ConstraintSet():
     def __init__(self, dataset):
         clusters = self.cluster(dataset)
@@ -210,7 +243,7 @@ class ConstraintSet():
 
 if __name__ == "__main__":
     from dataload_helper import point_c_data, plug, rake
-    from visualize import plot_3d_points, plot_3d_points_segments
+    from visualize import plot_x_pt_inX, plot_3d_points_segments
 
     cable = False
 
@@ -233,12 +266,21 @@ if __name__ == "__main__":
 
         #plot_3d_points_segments(L=pts, rest_pt=params['rest_pt'])
     else:
-        pts_1 = rake(index=1, segment=True).load(pose=True)[1]
+        pts_1, segments, time = rake(index=5, segment=True).load(pose=True)
         #pts_2 = rake(index=2, segment=True).load(pose=True)[1]
         #pts_3 = rake(index=3, segment=True).load(pose=True)[1]
         #pts_4 = rake(index=4, segment=True).load(pose=True)[1]
         #pts_5 = rake(index=5, segment=True).load(pose=True)[1]
-        print(pts_1.shape)
+
+        pts = pts_1[1]
+        print(pts.shape)
 
         constraint = DoublePointConstraint()
-        params = constraint.fit_hinf(pts_1)
+        #constraint = DoublePointConstraint2()
+        params = constraint.fit_hinf(pts)
+        #params = constraint.fit_h2(pts)
+        L_pt = [params['pt_0'], params['pt_1']]
+        plane = [params['pt_0'], params['d']]
+        plot_x_pt_inX(L_pt=L_pt, X=pts)
+
+

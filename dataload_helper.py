@@ -108,7 +108,7 @@ class point_c_data:
         return t_pts[index]
 
 class rake(data):
-    def __init__(self, index=1, clustered=False, segment=True):
+    def __init__(self, index=1, clustered=False, segment=False):
         self.segment=segment
         self.index = index
         data.__init__(self, clustered=clustered)
@@ -129,27 +129,30 @@ class rake(data):
                 T_init = kp2pose.init_T(init_kp)
                 __dataset = []
                 __dataset_segments = []
+                __dataset_time = []
                 for i in range(dataset.shape[0]):
                     data_kp = dataset[i,:,:kp_dim]
                     T_rake, delta = kp2pose.find_T(init_kp, data_kp, kp_delta_th=kp_delta_th)
                     if not delta: # only append poses wher kp2kp transform results in per keypoint offset smaller than kp_delta_th
                         if pose:
                             __dataset.append(T_rake @ T_init)
-                            __dataset_segments.append(dataset[i, 0, -1])
                         else:
                             __dataset.append(dataset[i, :, :])
-                            __dataset_segments.append(dataset[i, 0, -1])
+                        __dataset_segments.append(dataset[i, 0, -1])
+                        __dataset_time.append(dataset[i, 0, -2])
                     else:
                         n_discard += 1
                 if len(__dataset) > dataset_len:
                     dataset_len = len(__dataset)
                     n_discard_opti = np.copy(n_discard)
                     _dataset_segments = np.array(__dataset_segments)
+                    _dataset_time = np.array(__dataset_time)
                     _dataset = np.array(__dataset)
 
             if _dataset.shape[0] > 0.5*dataset.shape[0]:
                 dataset = _dataset
                 dataset_segments = _dataset_segments
+                dataset_time = _dataset_time
                 print(
                     f"Discarded {n_discard_opti} poses due to bad correspondence of kp_data, {n_dataset - n_discard_opti} poses remaining")
             else:
@@ -181,7 +184,7 @@ class rake(data):
                 dataset = np.mean(dataset, axis=1)
 
 
-            return dataset, dataset_segments
+            return dataset, dataset_segments, dataset_time
 
 
 
@@ -190,7 +193,11 @@ if __name__ == "__main__":
     #pts = point_c_data(n_points=1).points()
     #print(np.array(pts).shape)
     for i in range(5):
-       dataset, segments = rake(index=i+1, segment=False).load(center=False, pose=True)
+       dataset, segments, time = rake(index=i+1, segment=False).load(center=False, pose=True, kp_delta_th=0.004)
+
 
     print(dataset.shape)
     print(segments.shape)
+    print(time.shape)
+
+    print(time)
