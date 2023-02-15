@@ -58,9 +58,9 @@ class Constraint():
             T_sym = ca.horzcat(rot,pos)  # simbolic transformation matrix
             h = self.violation(T_sym)
             self.jac = ca.jacobian(h, x_sym)
-            self.jac_fn = ca.Function('self.jac_fn', [x_sym], [self.jac])
+            self.jac_fn = ca.Function('jac_fn', [x_sym], [self.jac])
             self.jac_pinv = ca.pinv(self.jac)
-            self.jac_pinv_fn = ca.Function('self.jac_pinv_fn', [x_sym], [self.jac_pinv])
+            self.jac_pinv_fn = ca.Function('jac_pinv_fn', [x_sym], [self.jac_pinv])
 
         return self.jac_fn, self.jac_pinv_fn
 
@@ -76,6 +76,16 @@ class Constraint():
         return ca.norm_2(f-self.jac_fn(x).T@(f@self.jac_pinv_fn(x))).full()
         raise NotImplementedError
 
+class NoConstraint(Constraint):
+    def __init__(self):
+        pass
+        
+    def fit(self, h_inf=True):
+        return 
+        
+    def violation(self, x):
+        return 0
+    
 class PointConstraint(Constraint):
     # a point on the rigidly held object is fixed in world coordinates
     def __init__(self):
@@ -187,27 +197,15 @@ class DoublePointConstraint2(Constraint):
         return ca.vertcat(delta_pt0, delta_pt1)
 
 
-
 class ConstraintSet():
-    def __init__(self, dataset):
-        clusters = self.cluster(dataset)
-        self.constraints = [] # list of constraints
-        for cluster in clusters:
-            c_type = self.id_constraint_pos(cluster)
-            c_fit = self.fit_constraint(cluster, c_type)
-            self.constraints.add(c_fit)
-        
-    def cluster(self, dataset):
-        clusters = [] # list of partitioned data
-        return clusters
+    def __init__(self, datasets):
+        # in: datasets is a list of clustered data, in order.
+        self.constraints = [NoConstraint(),
+                            PointConstraint(),
+                            PointConstraint()] # list of constraints
+        for const, data in zip(self.constraints, datasets):
+            const.fit(data)   
 
-    def fit_constraint(self, data, c_type):
-        pass
-    
-    def id_constraint_pos(self, x):
-        # identify which constraint type is most likely given the pose
-        pass
-    
     def id_constraint_force(self, x, f):
         # identify which constraint is most closely matching the current force
         for constr in self.constraints:
@@ -226,6 +224,13 @@ if __name__ == "__main__":
         pts_3 = plug(index=3, segment=True).load()[1]
         pts_L = [pts_1, pts_2, pts_3]
 
+        # Doing a little testing of the fake constraint
+        constraint = NoConstraint()
+        params = constraint.fit(pts_1)
+        jac, pinv = constraint.get_jac()
+        print(jac(np.ones(6)))
+        print(pinv(np.ones(6)))
+        
         T=np.eye(4)
 
         plug().save(specifier='T', T=T, index=1)
