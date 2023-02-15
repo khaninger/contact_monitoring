@@ -12,38 +12,23 @@ class Constraint():
         print("Initializing a Constraint with following params:")
         print(self.params)
     
-    def fit_h2(self, data):
-        #self.max_dist(data)
+    def fit(self, data, h_inf = True):
         # in: data is the trajectory that we measure from the demonstration
+        # in: h_inf activates the hinf penalty and inequality constraints in the optimization problem
         loss = 0
+        ineq_constraints = []
+
         for data_pt in data:
             loss += ca.norm_2(self.violation(data_pt))
 
         loss += data.shape[0]*self.regularization()
-        # get dec vars; x is symbolic decision vector of all params, lbx/ubx lower/upper bounds
-        x, lbx, ubx = self.params.get_dec_vectors()
-        x0 = self.params.get_x0()
-        args = dict(x0=x0, lbx=lbx, ubx=ubx, p=None)
-        prob = dict(f=loss, x=x)
-        solver = ca.nlpsol('solver', 'ipopt', prob)
-        sol = solver(x0 = x0, lbx = lbx, ubx = ubx)
-        self.params.set_results(sol['x'])
-        print(self.params)
-        return self.params
- 
-    def fit_hinf(self, data):
-        # in: data is the trajectory that we measure from the demonstration
 
-        # add a slack variable which will bound the violation, and be minimized
-        self.params['slack'] = DecisionVar(x0 = [0.5], lb = [0.0], ub = [0.01])
-        loss = 0
-        for d in data:
-            loss += ca.norm_2(self.violation(d))# - 10*self.params['slack']
-        loss += data.shape[0]*(self.regularization() + self.params['slack'])
-
-        # make the inequality constraints, which should always be <0, i.e. |violation|<slack
-        ineq_constraints = [ca.fabs(self.violation(d))-self.params['slack'] for d in data]
-        
+        if h_inf:
+            # add a slack variable which will bound the violation, and be minimized
+            self.params['slack'] = DecisionVar(x0 = [0.5], lb = [0.0], ub = [0.01])
+            loss += data.shape[0]*self.params['slack']
+            ineq_constraints = [ca.fabs(self.violation(d))-self.params['slack'] for d in data]
+            
         # get dec vars; x is symbolic decision vector of all params, lbx/ubx lower/upper bounds
         x, lbx, ubx = self.params.get_dec_vectors()
         x0 = self.params.get_x0()
@@ -56,27 +41,7 @@ class Constraint():
         self.params.set_results(sol['x'])
         print(self.params)
         return self.params
-
-    def max_dist(self, data):
-        #https://stackoverflow.com/questions/31667070/max-distance-between-2-points-in-a-data-set-and-identifying-the-points
-        if data[0].shape == (4,4):
-            datapoints = data[:, :3, 3]
-        else:
-            datapoints = data
-        # Returned 420 points in testing
-        hull = ConvexHull(datapoints)
-
-        # Extract the points forming the hull
-        hullpoints = datapoints[hull.vertices, :]
-        # Naive way of finding the best pair in O(H^2) time if H is number of points on
-        # hull
-        hdist = cdist(hullpoints, hullpoints, metric='euclidean')
-        # Get the farthest apart points
-        bestpair = np.unravel_index(hdist.argmax(), hdist.shape)
-
-        self.data_maxd = np.linalg.norm(hullpoints[bestpair[0]] - hullpoints[bestpair[1]])
-
-
+ 
     def violation(self, x: object) -> object:
         # constraint violation for a single pose x
         raise NotImplementedError

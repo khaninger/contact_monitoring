@@ -187,6 +187,24 @@ class rake(data):
             return dataset, dataset_segments, dataset_time
 
 
+def max_dist(data):
+    #https://stackoverflow.com/questions/31667070/max-distance-between-2-points-in-a-data-set-and-identifying-the-points
+    if data[0].shape == (4,4):
+        datapoints = data[:, :3, 3]
+    else:
+        datapoints = data
+    # Returned 420 points in testing
+    hull = ConvexHull(datapoints)
+
+    # Extract the points forming the hull
+    hullpoints = datapoints[hull.vertices, :]
+    # Naive way of finding the best pair in O(H^2) time if H is number of points on
+    # hull
+    hdist = cdist(hullpoints, hullpoints, metric='euclidean')
+    # Get the farthest apart points
+    bestpair = np.unravel_index(hdist.argmax(), hdist.shape)
+
+    return np.linalg.norm(hullpoints[bestpair[0]] - hullpoints[bestpair[1]])
 
 
 if __name__ == "__main__":
