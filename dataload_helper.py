@@ -6,7 +6,7 @@ import kp2pose
 
 class data():
 
-    def __init__(self, clustered):
+    def __init__(self, clustered=False):
         self.directory = os.path.dirname(os.path.realpath(__file__)) + "/data/"
         if clustered:
             self.directory += "clustering_video_"
@@ -15,8 +15,21 @@ class data():
     def load_data(self, path):
         return pickle.load(open(path, "rb"))
 
-    def save_data(self, data, path):
-        pickle.dump(data, open(path, "wb"))
+    def save_data(self, data, constraint="cable", specifier='0'):
+        path = os.path.dirname(os.path.realpath(__file__)) + "/data/constraint_fit.pickle"
+        try:
+            dictionary = self.load_data(path)
+        except:
+            dictionary = {}
+        try:
+            dictionary[constraint]
+        except:
+            dictionary[constraint] = {}
+
+        dictionary[constraint][specifier] = data
+        pickle.dump(dictionary, open(path, "wb"))
+        print(f"Saved {constraint} data at {path}")
+        print(dictionary)
 
     """
     def play_video(self, path):
@@ -123,11 +136,11 @@ class point_c_data:
         return t_pts[index]
 
 class rake(data):
-    def __init__(self, index=1, clustered=False, segment=False):
+    def __init__(self, index=1, clustered=False, segment=False, specifier="rake_"):
         self.segment=segment
         self.index = index
         data.__init__(self, clustered=clustered)
-        self.directory += "rake_"
+        self.directory += specifier
         self.path = self.directory + str(self.index) + ".pickle"
 
     def load(self, center=False, pose=False, kp_delta_th=0.005):
@@ -224,10 +237,12 @@ def max_dist(data):
 
 
 if __name__ == "__main__":
+    from visualize import plot_x_pt_inX as pp
     #pts = point_c_data(n_points=1).points()
     #print(np.array(pts).shape)
-    for i in range(5):
-       dataset, segments, time = rake(index=i+1, segment=True).load(center=False, pose=False, kp_delta_th=0.005)
+    #for i in range(5):
+    #   dataset, segments, time = rake(index=i+1, segment=True).load(center=False, pose=False, kp_delta_th=0.005)
 
+    dataset, segments, time = rake(index=1, segment=True, specifier="sexy_rake_hinge_").load(center=False, pose=False, kp_delta_th=0.005)
 
-    print(dataset[1].shape)
+    pp(L_pt=dataset[2])
