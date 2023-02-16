@@ -13,12 +13,15 @@ from camera.skripts import main
 #from camera.robot2 import Robot
 from urx import Robot
 from . import kp2pose
-#from constraint import *
+
+from .constraint import *
+from .rotation_helpers import xyz_to_rotation
 
 class Controller():
-    def __init__(self, c_set = 'constraints_set.pkl'):
+    def __init__(self, constraint): #c_set = 'constraints_set.pkl'):
         # Load all constraints things
         #self.load_constraints(c_set)
+        self.constraint = constraint
 
         self.cam = None
         #self.init_camera()
@@ -57,8 +60,8 @@ class Controller():
 
     def speedl(self):
         vel_null = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
-        vels = [0.1, 0.0, 0.0, 0.0, 0.0, 0.0]
-        vels2 = [0.0, 0.0, -0.1, 0.0, 0.0, 0.0]
+        vels = [-0.2, 0.0, 0.0, 0.0, 0.0, 0.0]
+        vels2 = [0.0, 0.0, -0.2, 0.0, 0.0, 0.0]
         accs = 0.01
 
         print('Setting robot speed')
@@ -66,7 +69,7 @@ class Controller():
         sleep(5.0)
         print('Setting robot speed2')
         self.rob.speedl_tool(velocities=vels2, acc=accs, min_time=10.0)
-        sleep(3.0)
+        sleep(6.0)
         print('Sending zero vel')
         self.rob.speedl_tool(velocities=vel_null, acc=accs, min_time=0.1) # Abrupt stop even with 1.0 for min_time
         print('Ending robot speed')
@@ -75,7 +78,14 @@ class Controller():
         # Control loop, runs til kill
         while(True):
             x_tcp, f_tcp = self.get_robot_data()
-            sleep(0.1)
+            R_tcp = xyz_to_rotation(x_tcp[3:])
+            p = np.expand_dims(np.array(x_tcp[:3]),0)
+            T_tcp = np.hstack((np.vstack((R_tcp, np.zeros((1,3)))),
+                              np.vstack((p.T,np.array(1)))))
+            sim = self.constraint.get_similarity(T_tcp, f_tcp)
+            print(f'similarity: {sim}')
+            #print(f'recieved {f_tcp}')
+            #sleep(0.1)
             #constraint_mode = self.c_set.id_constraint(x_tcp, f_tcp)
 
 
@@ -115,7 +125,7 @@ if __name__ == '__main__':
     print("starting controller!!!")
     try:
         controller = Controller()
-        controller.speedl()
-        # controller.loop()
+        #controller.speedl()
+        controller.loop()
     finally:
         controller.stop()

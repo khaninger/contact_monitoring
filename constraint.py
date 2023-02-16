@@ -1,10 +1,12 @@
 import casadi as ca
 import numpy as np
-from decision_vars import DecisionVar, DecisionVarSet
+import pickle
+
+from .decision_vars import DecisionVar, DecisionVarSet
 
 from scipy.spatial import ConvexHull
 from scipy.spatial.distance import cdist
-from rotation_helpers import rotvec_to_rotation, rotation_to_rotvec
+from .rotation_helpers import rotvec_to_rotation, rotation_to_rotvec
 
 class Constraint():
     def __init__(self, params_init, skip_opt = False):
@@ -79,8 +81,6 @@ class Constraint():
     def get_similarity(self, x, f):
         # IN: x is a numerical value for a pose
         # IN: f is the numerical value for measured force
-        # TODO add the least squares residual calculation
-        # TODO check x and f are same dim
         if self.linear == True:
             self.jac_fn()
             self.jac_pinv_fn
@@ -268,8 +268,10 @@ class ConstraintSet():
         pass
 
 if __name__ == "__main__":
-    from dataload_helper import point_c_data, plug, rake, data
-    from visualize import plot_x_pt_inX, plot_3d_points_segments
+    from .dataload_helper import point_c_data, plug, rake, data
+    from .visualize import plot_x_pt_inX, plot_3d_points_segments
+
+    from .controller import Controller
 
     cable = True
 
@@ -279,18 +281,21 @@ if __name__ == "__main__":
         pts_3 = plug(index=3, segment=True).load()[1]
         pts_L = [pts_1, pts_2, pts_3]
 
-        # Doing a little testing of the fake constraint
-        #constraint = NoConstraint()
-        #params = constraint.fit(pts_1)
-        #jac, pinv = constraint.get_jac()
-        #print(jac(np.ones(6)))
-        #print(pinv(np.ones(6)))
-        
+
         #T=np.eye(4)
 
         # Faire le testing du save
         constraint = CableConstraint()
         params = constraint.fit(pts_3, h_inf=True)
+        try:
+            cont = Controller(constraint)
+            cont.loop()
+        finally:
+            cont.stop()
+
+        with open('models/cable.pkl', 'wb') as f:
+            pickle.dump(constraint, f)
+
         print(
             f"** Ground truth **\nradius_1:\n: {0.28}\nrest_pt:\n: {np.array([-0.31187662, -0.36479221, -0.03707742])}")
         #plot_3d_points_segments(L=[pts_1], radius=params['radius_1'], rest_pt=params['rest_pt'], exp_n=1)
