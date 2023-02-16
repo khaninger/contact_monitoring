@@ -47,7 +47,7 @@ class Controller():
         # Get the TCP pose and forces from robot
         f = np.array(self.rob.get_tcp_force(wait=True))
         x_tcp = np.array(self.rob.getl(wait=True))
-        print(f'Got robot data: \n  tcp {x_tcp}    force {f}')
+        #print(f'Got robot data: \n  tcp   {x_tcp} \n  force {f}')
         return x_tcp, f
 
     def get_object_data(self):
@@ -56,13 +56,17 @@ class Controller():
         return x_obj, f
 
     def speedl(self):
-        vel_null = [0.00, 0.0, 0.0, 0.0, 0.0, 0.0]
-        vels = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+        vel_null = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+        vels = [0.1, 0.0, 0.0, 0.0, 0.0, 0.0]
+        vels2 = [0.0, 0.0, -0.1, 0.0, 0.0, 0.0]
         accs = 0.01
 
         print('Setting robot speed')
         self.rob.speedl_tool(velocities=vels, acc=accs, min_time=10.0)
         sleep(5.0)
+        print('Setting robot speed2')
+        self.rob.speedl_tool(velocities=vels2, acc=accs, min_time=10.0)
+        sleep(3.0)
         print('Sending zero vel')
         self.rob.speedl_tool(velocities=vel_null, acc=accs, min_time=0.1) # Abrupt stop even with 1.0 for min_time
         print('Ending robot speed')
@@ -111,7 +115,7 @@ if __name__ == '__main__':
     print("starting controller!!!")
     try:
         controller = Controller()
-        # controller.speedl()
-        controller.loop()
+        controller.speedl()
+        # controller.loop()
     finally:
         controller.stop()
