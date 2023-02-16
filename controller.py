@@ -6,52 +6,42 @@ from time import sleep
 # import urx
 import numpy as np
 import pickle
-import sys
-
-from . import kp2pose
-
-# setting path
-from camera import cvf, camera2, helper_functions
-from camera.skripts import main
-from camera.robot2 import Robot
-
-#TODO
-# Setup Shared_parent_folder
-# __init__ needs robot and camera
 
 # Local project files
+from camera import cvf, camera2, helper_functions
+from camera.skripts import main
+#from camera.robot2 import Robot
+from urx import Robot
+from . import kp2pose
 #from constraint import *
 
 class Controller():
     def __init__(self, c_set = 'constraints_set.pkl'):
         # Load all constraints things
         #self.load_constraints(c_set)
+
+        self.cam = None
+        #self.init_camera()
+        self.init_robot(cam = self.cam)
         self.tcp_to_obj = None # Pose of object in TCP frame
-
-        cam = camera2.Camera()
-        #cam.streaming()
-
-        # Init robot etc
-        self.init_robot(cam = cam)
-        #self.loop()
-
-        self.tcp_to_obj = None # Pose of object in TCP frame
-
-
-        self.obj_kp = main.object_data(camera=cam, robot=self.rob)
-        self.obj_name = "plug"
 
     def load_constraints(self, c_file):
         with open(c_file) as f:
             self.c_set = pickle.load(f)
 
+    def init_camera(self):
+        self.cam = camera2.Camera()
+        self.cam.streaming()
+        self.obj_kp = main.object_data(camera=self.cam, robot=self.rob)
+        self.obj_name = "plug"
+
     def init_robot(self, cam = None):
         try:
-            self.rob = Robot(cam = cam)#(host="192.168.29.102", use_rt=True)
+            #self.rob = Robot(cam = cam)
+            self.rob = Robot(host="192.168.29.102", use_rt=True)
         except:
             print("Error opening robot connection")
             self.stop()
-
 
     def get_robot_data(self):
         # Get the TCP pose and forces from robot
@@ -120,8 +110,8 @@ class Controller():
 if __name__ == '__main__':
     print("starting controller!!!")
     try:
-        _controller = Controller()
+        controller = Controller()
         # controller.speedl()
-        _controller.loop()
+        controller.loop()
     finally:
-        _controller.stop()
+        controller.stop()
