@@ -89,8 +89,6 @@ def plot_x_pt_inX(L_pt, X=None, plane=None):
     else:
 
         for pts in L_pt:
-            print("pts")
-            print(pts)
             for i, point in enumerate(pts):
                 ax.scatter(point[0], point[1], point[2], color=colors[i])
 

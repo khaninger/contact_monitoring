@@ -3,17 +3,17 @@ import os
 from time import sleep
 
 # Standard libraries
-import urx
+# import urx
 import numpy as np
 import pickle
 import sys
 
-import kp2pose
+from . import kp2pose
 
 # setting path
-Shared_parent_folder = ''
-sys.path.append('../'+Shared_parent_folder)
-from Path_from_Shared_parent_folder_2Thesis.Thesis import *
+from camera import cvf, camera2, helper_functions
+from camera.skripts import main
+from camera.robot2 import Robot
 
 #TODO
 # Setup Shared_parent_folder
@@ -28,22 +28,26 @@ class Controller():
         #self.load_constraints(c_set)
         self.tcp_to_obj = None # Pose of object in TCP frame
 
+        cam = camera2.Camera()
+        #cam.streaming()
+
         # Init robot etc
-        self.init_robot()
+        self.init_robot(cam = cam)
         #self.loop()
 
         self.tcp_to_obj = None # Pose of object in TCP frame
 
-        self.obj_kp = main.object_data(camera=camera, robot=robot)
+
+        self.obj_kp = main.object_data(camera=cam, robot=self.rob)
         self.obj_name = "plug"
 
     def load_constraints(self, c_file):
         with open(c_file) as f:
             self.c_set = pickle.load(f)
 
-    def init_robot(self):
+    def init_robot(self, cam = None):
         try:
-            self.rob = urx.Robot(host="192.168.29.102", use_rt=True)
+            self.rob = Robot(cam = cam)#(host="192.168.29.102", use_rt=True)
         except:
             print("Error opening robot connection")
             self.stop()
@@ -116,8 +120,8 @@ class Controller():
 if __name__ == '__main__':
     print("starting controller!!!")
     try:
-        controller = Controller()
+        _controller = Controller()
         # controller.speedl()
-        controller.loop()
+        _controller.loop()
     finally:
-        controller.stop()
+        _controller.stop()
