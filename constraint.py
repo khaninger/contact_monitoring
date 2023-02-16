@@ -4,7 +4,7 @@ from decision_vars import DecisionVar, DecisionVarSet
 
 from scipy.spatial import ConvexHull
 from scipy.spatial.distance import cdist
-from rotation_helpers import rotvec_to_rotation
+from rotation_helpers import rotvec_to_rotation, rotation_to_rotvec
 
 class Constraint():
     def __init__(self, params_init):
@@ -12,6 +12,8 @@ class Constraint():
         self.params = DecisionVarSet(x0 = params_init) # builds a dec var set with init value x0, optional params xlb xub
         print("Initializing a Constraint with following params:")
         print(self.params)
+        self.linear = False
+
     
     def fit(self, data, h_inf = True):
         # in: data is the trajectory that we measure from the demonstration
@@ -41,7 +43,7 @@ class Constraint():
         sol = solver(x0 = x0, lbx = lbx, ubx = ubx)
         self.params.set_results(sol['x'])
         print(self.params)
-        #self.get_jac()
+        self.get_jac()
         return self.params
  
     def violation(self, x: object) -> object:
@@ -51,30 +53,53 @@ class Constraint():
     def get_jac(self):
         # jacobian constructed at x_sym
         if not hasattr(self,"jac_fn"):
-            x_sym = ca.SX.sym("x_sym",6)
-            R_sym = rotvec_to_rotation(x_sym[3:])
-            rot = ca.vertcat(R_sym, ca.SX(1,3))
-            pos = ca.vertcat(x_sym[:3], ca.SX(1))
-            T_sym = ca.horzcat(rot,pos)  # simbolic transformation matrix
-            h = self.violation(T_sym)
-            self.jac = ca.jacobian(h, x_sym)
-            self.jac_fn = ca.Function('jac_fn', [x_sym], [self.jac])
-            self.jac_pinv = ca.pinv(self.jac)
-            self.jac_pinv_fn = ca.Function('jac_pinv_fn', [x_sym], [self.jac_pinv])
+            if self.linear:
+                x_sym = ca.SX.sym("x_sym",3)
+                h = self.violation(x_sym)
+                self.jac = ca.jacobian(h,x_sym)
+                self.jac_fn = ca.Function('jac_fn', [x_sym], [self.jac])
+                self.jac_pinv = ca.pinv(self.jac)
+                self.jac_pinv_fn = ca.Function('jac_pinv_fn', [x_sym], [self.jac_pinv])
+            else:
+                x_sym = ca.SX.sym("x_sym",6)
+                R_sym = rotvec_to_rotation(x_sym[3:])
+                rot = ca.vertcat(R_sym, ca.SX(1,3))
+                pos = ca.vertcat(x_sym[:3], ca.SX(1))
+                T_sym = ca.horzcat(rot,pos)  # simbolic transformation matrix
+                h = self.violation(T_sym)
+                self.jac = ca.jacobian(h, x_sym)
+                self.jac_fn = ca.Function('jac_fn', [x_sym], [self.jac])
+                self.jac_pinv = ca.pinv(self.jac)
+                self.jac_pinv_fn = ca.Function('jac_pinv_fn', [x_sym], [self.jac_pinv])
 
-        return self.jac_fn, self.jac_pinv_fn
+
 
     def get_similarity(self, x, f):
         # IN: x is a numerical value for a pose
         # IN: f is the numerical value for measured force
         # TODO add the least squares residual calculation
         # TODO check x and f are same dim
+        if self.linear == True:
+            self.jac_fn()
+            self.jac_pinv_fn
+            f = f[:3]
+            x = x[:3,-1]
+        else:
+            self.jac_fn()
+            self.jac_pinv_fn()
+            pos = x[:3,-1]
+            rot = x[:3,:3]
+            rot_vec = rotation_to_rotvec(rot)
+            x = np.concatenate((pos,rot_vec))
 
-        assert (x.shape == f.shape)
-        jac_fn = self.get_jac()
-        self.jac_fn()
-        return ca.norm_2(f-self.jac_fn(x).T@(f@self.jac_pinv_fn(x))).full()
-        raise NotImplementedError
+
+
+
+
+
+
+        return ca.norm_2(ca.SX(f)-self.jac_fn(x).T@(ca.SX(f).T@self.jac_pinv_fn(x)))
+
 
 class NoConstraint(Constraint):
     def __init__(self):
@@ -108,12 +133,15 @@ class CableConstraint(Constraint):
 
         #params_init = {'rest_pt': np.array([0, 0, 0])}
         Constraint.__init__(self, params_init)
+        self.linear = True  # flag variable to switch between full jacobian and linear one
         #self.params['radius_1'] = DecisionVar(x0=[0.5], lb=[0.0], ub=[10])
     def regularization(self):
         return 0.001 * self.params['radius_1']
 
     def violation(self, x):
         #return self.params['radius_1'] - ca.exp(1+ca.norm_2(x - self.params['rest_pt']))
+
+
         return self.params['radius_1'] - ca.norm_2(x - self.params['rest_pt'])
 
     def violation2(self, x):
@@ -209,7 +237,7 @@ class ConstraintSet():
     def id_constraint_force(self, x, f):
         # identify which constraint is most closely matching the current force
         for constr in self.constraints:
-            sim_score = constr.get_similarity(x, F)
+            sim_score = constr.get_similarity(x, f)
         pass
 
 if __name__ == "__main__":
@@ -225,15 +253,15 @@ if __name__ == "__main__":
         pts_L = [pts_1, pts_2, pts_3]
 
         # Doing a little testing of the fake constraint
-        constraint = NoConstraint()
-        params = constraint.fit(pts_1)
-        jac, pinv = constraint.get_jac()
-        print(jac(np.ones(6)))
-        print(pinv(np.ones(6)))
+        #constraint = NoConstraint()
+        #params = constraint.fit(pts_1)
+        #jac, pinv = constraint.get_jac()
+        #print(jac(np.ones(6)))
+        #print(pinv(np.ones(6)))
         
-        T=np.eye(4)
+        #T=np.eye(4)
 
-        plug().save(specifier='T', T=T, index=1)
+        #plug().save(specifier='T', T=T, index=1)
 
         """
         for i in range(3):
@@ -264,5 +292,16 @@ if __name__ == "__main__":
         #L_pt = [params['pt_0'], params['pt_1']]
         #plane = [params['plane_normal'], params['d']]
         #plot_x_pt_inX(L_pt=L_pt, X=pose_data[1], plane=plane)
+
+
+    constraint = CableConstraint()
+    params = constraint.fit(pts_1,h_inf=True)
+    print(pts_1.shape)
+
+
+    similarity = constraint.get_similarity(np.eye(4),np.ones(6))
+    print(constraint.jac.shape)
+
+
 
 
