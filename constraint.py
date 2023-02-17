@@ -4,8 +4,6 @@ import pickle
 
 from .decision_vars import DecisionVar, DecisionVarSet
 
-from scipy.spatial import ConvexHull
-from scipy.spatial.distance import cdist
 from .rotation_helpers import *
 
 class Constraint():
