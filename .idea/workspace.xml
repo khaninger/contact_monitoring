@@ -5,11 +5,8 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="4996e4d5-555e-4ec5-a3d4-2a95c4043bd5" name="Changes" comment="Ad visualize.py">
+      <change afterPath="$PROJECT_DIR$/dataloader_helper2.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/constraint.py" beforeDir="false" afterPath="$PROJECT_DIR$/constraint.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/controller.py" beforeDir="false" afterPath="$PROJECT_DIR$/controller.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/data/Exp_Notes" beforeDir="false" afterPath="$PROJECT_DIR$/data/Exp_Notes" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/data/plug_constraint_1.pickle" beforeDir="false" afterPath="$PROJECT_DIR$/data/plug_constraint_1.pickle" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/dataload_helper.py" beforeDir="false" afterPath="$PROJECT_DIR$/dataload_helper.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
