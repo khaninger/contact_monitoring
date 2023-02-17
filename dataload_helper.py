@@ -12,21 +12,18 @@ class data():
             self.directory += "clustering_video_"
         else:
             self.directory += "video_"
+
     def load_data(self, path):
         return pickle.load(open(path, "rb"))
 
     def save_data(self, data, constraint="cable", specifier='0'):
-        path = os.path.dirname(os.path.realpath(__file__)) + "/data/constraint_fit.pickle"
+        path = os.path.dirname(os.path.realpath(__file__)) + "/data/constraint_fit_" + constraint + ".pickle"
         try:
             dictionary = self.load_data(path)
         except:
             dictionary = {}
-        try:
-            dictionary[constraint]
-        except:
-            dictionary[constraint] = {}
 
-        dictionary[constraint][specifier] = data
+        dictionary[specifier] = data
         pickle.dump(dictionary, open(path, "wb"))
         print(f"Saved {constraint} data at {path}")
         print(dictionary)
