@@ -9,16 +9,19 @@ from scipy.spatial.distance import cdist
 from .rotation_helpers import rotvec_to_rotation, rotation_to_rotvec
 
 class Constraint():
-    def __init__(self, params_init, skip_opt = False):
+    def __init__(self, params_init):
         # in: params_init is a dictionary which sets the parameters to be optimized, their dimensions, and their initial values
         # in: skip_opt loads the initial params as the final params, skipping the optimization
         self.params = DecisionVarSet(x0 = params_init) # builds a dec var set with init value x0, optional params xlb xub
         print("Initializing a Constraint with following params:")
         print(self.params)
         self.linear = False
-        if(skip_opt):
-            self.params = params_init
-    
+
+    def set_params(self, params_init):
+        print("Skipping Optimization and just init params")
+        print(f"**Params**\n{params_init}")
+        self.params = params_init
+
     def fit(self, data, h_inf = True):
         # in: data is the trajectory that we measure from the demonstration
         # in: h_inf activates the hinf penalty and inequality constraints in the optimization problem
@@ -246,24 +249,29 @@ class ConstraintSet():
     def __init__(self):
         self.constraints = {}
 
-    def fit(names, constraints, datasets):
+    def fit(self, names, constraints, datasets):
         # in: datasets is a list of clustered data, in order.
         # in: constraints is a list of constraint objects, in order.
-        for name, const, data in zip(names, self.constraints, datasets):
-            self.constraints[name] = const.fit(data)
+        for name, const_type, data in zip(names, constraints, datasets):
+            const = const_type()
+            const.fit(data)
+            self.constraints[name] = const
 
-    def load(file_path):
+    def load(self, file_path):
         # does some loading of the constraints
-        save_dict # load pickle file
+        save_dict = pickle.load(open(file_path, 'rb'))# load pickle file
         for name in save_dict.keys():
-            # first element in tuple is the type, 2nd is the params
+            # first element in tuple in save_dict[name] is the type, 2nd is the params
             # we are calling the type to construct the object, with argument of the params
-            self.constraints[name] = save_dict[name][0](save_dict[name][1], skip_opt = True) 
+            const = save_dict[name][0]()
+            const.set_params(save_dict[name][1])
+            self.constraints[name] = const
 
-    def save(file_path):
+    def save(self, file_path):
         # save name, ConstraintType, params
+        # this one generates a dict with the keys from contraint
         save_dict = {name: self.constraints[name].save() for name in self.constraints.keys()}
-
+        pickle.dump(save_dict, open(file_path, 'wb'))
 
     def id_constraint_force(self, x, f):
         # identify which constraint is most closely matching the current force
@@ -272,6 +280,7 @@ class ConstraintSet():
         pass
 
 if __name__ == "__main__":
+    import os
     from .dataload_helper import point_c_data, plug, rake, data
     from .visualize import plot_x_pt_inX, plot_3d_points_segments
 
@@ -280,21 +289,20 @@ if __name__ == "__main__":
     cable = False
 
     if cable:
-        pts_1 = plug(index=1, segment=True).load()[1]
-        pts_2 = plug(index=2, segment=True).load()[1]
-        pts_3 = plug(index=3, segment=True).load()[1]
-        pts_L = [pts_1, pts_2, pts_3]
 
-        names = ['cable_fixture', 'front_pivot']
-        c_set = ConstraintSet(names)
+        for i in range(3):
+            ind = i+1
+            pts = plug(index=ind, segment=True).load()[1]
+            constraint = CableConstraint()
+            params = constraint.fit(pts, h_inf=True)
+            print(
+            f"** Ground truth **\nradius_1:\n: {0.28}\nrest_pt:\n: {np.array([-0.31187662, -0.36479221, -0.03707742])}")
 
-        constraints =  [PointConstraint(),
-                        PointConstraint()] # list of constraints
-        #T=np.eye(4)
 
+    else:
+        """
         # Faire le testing du save
         constraint = CableConstraint()
-        params = constraint.fit(pts_3, h_inf=True)
         try:
             cont = Controller(constraint)
             cont.loop()
@@ -303,42 +311,25 @@ if __name__ == "__main__":
 
         with open('models/cable.pkl', 'wb') as f:
             pickle.dump(constraint, f)
-
-        print(
-            f"** Ground truth **\nradius_1:\n: {0.28}\nrest_pt:\n: {np.array([-0.31187662, -0.36479221, -0.03707742])}")
-        #plot_3d_points_segments(L=[pts_1], radius=params['radius_1'], rest_pt=params['rest_pt'], exp_n=1)
-
-        data().save_data(data=constraint ,constraint="cable", specifier='1')
-
-        """
-        for i in range(3):
-            ind = i+1
-            pts = plug(index=ind, segment=True).load()[1]
-            constraint = CableConstraint()
-            params = constraint.fit(pts_3, h_inf=True)
-            plug().save(rest_pt=params['rest_pt'], radius=params['radius_1'], specifier='0', index=ind)
         """
 
-        """
-        for i in range(3):
-            constraint = CableConstraint()
-            params = constraint.fit(pts_L[i], h_inf=True)
-            print(f"** Ground truth **\nradius_1:\n: {0.28}\nrest_pt:\n: {np.array([-0.31187662, -0.36479221, -0.03707742])}")
-            plot_3d_points_segments(L=[pts_L[i]], radius=params['radius_1'] , rest_pt=params['rest_pt'], exp_n=i+1)
-        """
+        names = ['cable_fixture', 'front_pivot']
 
-        #plot_3d_points_segments(L=pts, rest_pt=params['rest_pt'])
-    else:
+        constraints = [CableConstraint,
+                       CableConstraint]  # list of constraints
+        datasets = [plug(index=i+1, segment=True).load()[1] for i in range(2)]
 
-        constraint = DoublePointConstraint3()
-        constraint2 = DoublePointConstraint2()
-        ty = constraint.save()[0]
-        print(f"saved constraint "+str(constraint.save()[0]))
+        c_set = ConstraintSet()
 
-        with open('contact_monitoring/models/type.pkl', 'wb') as f:
-            pickle.dump(ty, f)
+        #c_set.fit(names=names, constraints=constraints, datasets=datasets)
 
-        reconstraint = pickle.load(open('contact_monitoring/models/type.pkl', 'rb'))()
-        print(f"recreated const "+str(type(reconstraint)))
-        #print(f"constraint id {id(constraint2)}")
+        path = os.getcwd() + "/contact_monitoring/data/cable_constraint.pickle"
+        #c_set.save(file_path=path)
+        c_set.load(file_path=path)
+        for i in range(2): print(c_set.constraints)
+
+
+
+
+
 
