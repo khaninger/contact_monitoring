@@ -55,7 +55,19 @@ def rotation_to_rotvec(R):
                               r/ca.sqrt((3-tr)*(1+tr))))
 
     return r*theta
-    
+
+def tmat_to_rotvec_pose(T):
+    pos = T[:3,-1]
+    rot = T[:3,:3]
+    rot_vec = rotation_to_rotvec(rot)
+    return ca.vertcat(pos,rot_vec)
+
+def rotvec_pose_to_tmat(r):
+    R_sym = rotvec_to_rotation(r[3:])
+    rot = ca.vertcat(R_sym, ca.SX(1,3))
+    pos = ca.vertcat(r[:3], ca.SX(1))
+    return ca.horzcat(rot,pos)  # simbolic transformation matrix
+
 def rotvec_to_quat(r):
     norm_r = ca.norm_2(r)
     th_2 = norm_r/2.0
