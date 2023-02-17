@@ -7,7 +7,7 @@
     <list default="true" id="4996e4d5-555e-4ec5-a3d4-2a95c4043bd5" name="Changes" comment="Ad visualize.py">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/constraint.py" beforeDir="false" afterPath="$PROJECT_DIR$/constraint.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/test_constraint_detection.py" beforeDir="false" afterPath="$PROJECT_DIR$/test_constraint_detection.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/dataload_helper.py" beforeDir="false" afterPath="$PROJECT_DIR$/dataload_helper.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -32,13 +32,24 @@
     <option name="hideEmptyMiddlePackages" value="true" />
     <option name="showLibraryContents" value="true" />
   </component>
-  <component name="PropertiesComponent">{
-  &quot;keyToString&quot;: {
-    &quot;RunOnceActivity.OpenProjectViewOnStart&quot;: &quot;true&quot;,
-    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
-    &quot;last_opened_file_path&quot;: &quot;/home/christian/Projects/Thesis/skripts/main.py&quot;
+  <component name="PropertiesComponent"><![CDATA[{
+  "keyToString": {
+    "RunOnceActivity.OpenProjectViewOnStart": "true",
+    "RunOnceActivity.ShowReadmeOnStart": "true",
+    "last_opened_file_path": "/home/ipk410/converging",
+    "settings.editor.selected.configurable": "PyConsoleConfigurable.Python Console"
   }
-}</component>
+}]]></component>
+  <component name="PyConsoleOptionsProvider">
+    <option name="myPythonConsoleState">
+      <console-settings interpreter-options="-m contact_monitoring.constraint" module-name="contact_monitoring" is-module-sdk="true" working-directory="$PROJECT_DIR$/..">
+        <option name="myInterpreterOptions" value="-m contact_monitoring.constraint" />
+        <option name="myUseModuleSdk" value="true" />
+        <option name="myModuleName" value="contact_monitoring" />
+        <option name="myWorkingDirectory" value="$PROJECT_DIR$/.." />
+      </console-settings>
+    </option>
+  </component>
   <component name="SpellCheckerSettings" RuntimeDictionaries="0" Folders="0" CustomDictionaries="0" DefaultDictionary="application-level" UseSingleDictionary="true" transferred="true" />
   <component name="TaskManager">
     <task active="true" id="Default" summary="Default task">

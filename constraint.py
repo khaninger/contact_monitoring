@@ -35,7 +35,7 @@ class Constraint():
             self.params['slack'] = DecisionVar(x0 = [0.5], lb = [0.0], ub = [0.1])
             loss += data.shape[0]*self.params['slack']
             ineq_constraints = [ca.fabs(self.violation(d))-self.params['slack'] for d in data]
-            
+
         # get dec vars; x is symbolic decision vector of all params, lbx/ubx lower/upper bounds
         x, lbx, ubx = self.params.get_dec_vectors()
         x0 = self.params.get_x0()
@@ -76,8 +76,6 @@ class Constraint():
                 self.jac_pinv = ca.pinv(self.jac)
                 self.jac_pinv_fn = ca.Function('jac_pinv_fn', [x_sym], [self.jac_pinv])
 
-
-
     def get_similarity(self, x, f):
         # IN: x is a numerical value for a pose
         # IN: f is the numerical value for measured force
@@ -96,17 +94,9 @@ class Constraint():
 
         return ca.norm_2(ca.SX(f)-self.jac_fn(x).T@(ca.SX(f).T@self.jac_pinv_fn(x)))
 
+    def save(self):
+        return (type(self), self.params)
 
-class NoConstraint(Constraint):
-    def __init__(self):
-        pass
-        
-    def fit(self, h_inf=True):
-        return 
-        
-    def violation(self, x):
-        return 0
-    
 class PointConstraint(Constraint):
     # a point on the rigidly held object is fixed in world coordinates
     def __init__(self):
@@ -253,13 +243,27 @@ class DoublePointConstraint3(Constraint):
         return ca.vertcat(loss, loss)
 
 class ConstraintSet():
-    def __init__(self, datasets):
+    def __init__(self):
+        self.constraints = {}
+
+    def fit(names, constraints, datasets):
         # in: datasets is a list of clustered data, in order.
-        self.constraints = [NoConstraint(),
-                            PointConstraint(),
-                            PointConstraint()] # list of constraints
-        for const, data in zip(self.constraints, datasets):
-            const.fit(data)   
+        # in: constraints is a list of constraint objects, in order.
+        for name, const, data in zip(names, self.constraints, datasets):
+            self.constraints[name] = const.fit(data)
+
+    def load(file_path):
+        # does some loading of the constraints
+        save_dict # load pickle file
+        for name in save_dict.keys():
+            # first element in tuple is the type, 2nd is the params
+            # we are calling the type to construct the object, with argument of the params
+            self.constraints[name] = save_dict[name][0](save_dict[name][1], skip_opt = True) 
+
+    def save(file_path):
+        # save name, ConstraintType, params
+        save_dict = {name: self.constraints[name].save() for name in self.constraints.keys()}
+
 
     def id_constraint_force(self, x, f):
         # identify which constraint is most closely matching the current force
@@ -273,7 +277,7 @@ if __name__ == "__main__":
 
     from .controller import Controller
 
-    cable = True
+    cable = False
 
     if cable:
         pts_1 = plug(index=1, segment=True).load()[1]
@@ -281,7 +285,11 @@ if __name__ == "__main__":
         pts_3 = plug(index=3, segment=True).load()[1]
         pts_L = [pts_1, pts_2, pts_3]
 
+        names = ['cable_fixture', 'front_pivot']
+        c_set = ConstraintSet(names)
 
+        constraints =  [PointConstraint(),
+                        PointConstraint()] # list of constraints
         #T=np.eye(4)
 
         # Faire le testing du save
@@ -321,21 +329,16 @@ if __name__ == "__main__":
 
         #plot_3d_points_segments(L=pts, rest_pt=params['rest_pt'])
     else:
-        #pose_data, segments, time = rake(index=3, segment=True).load(pose=True, kp_delta_th=0.005)
-        #kp_data, segments, time = rake(index=3, segment=True).load(pose=False, kp_delta_th=0.005)
-
-        pose_data, segments, time = rake(index=1, segment=False, specifier="sexy_rake_").load(pose=True, kp_delta_th=0.005)
-        kp_data, segments, time = rake(index=1, segment=False, specifier="sexy_rake_").load(pose=False, kp_delta_th=0.005)
-
-        #plot_x_pt_inX(L_pt=kp_data[1])
-        #plot_x_pt_inX(L_pt=kp_data)
 
         constraint = DoublePointConstraint3()
-        #params = constraint.fit(pose_data[1], h_inf=True)
-        params = constraint.fit(kp_data, h_inf=True)
-        L_pt = [params['pt_0'], params['pt_1']]
-        plane = [params['plane_normal'], params['d']]
-        #plot_x_pt_inX(L_pt=L_pt, X=pose_data, plane=plane)
-        plot_x_pt_inX(L_pt=kp_data, plane=plane)
+        constraint2 = DoublePointConstraint2()
+        ty = constraint.save()[0]
+        print(f"saved constraint "+str(constraint.save()[0]))
 
+        with open('contact_monitoring/models/type.pkl', 'wb') as f:
+            pickle.dump(ty, f)
+
+        reconstraint = pickle.load(open('contact_monitoring/models/type.pkl', 'rb'))()
+        print(f"recreated const "+str(type(reconstraint)))
+        #print(f"constraint id {id(constraint2)}")
 
