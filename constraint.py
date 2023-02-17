@@ -1,17 +1,23 @@
 import casadi as ca
 import numpy as np
-from decision_vars import DecisionVar, DecisionVarSet
+import pickle
+
+from .decision_vars import DecisionVar, DecisionVarSet
 
 from scipy.spatial import ConvexHull
 from scipy.spatial.distance import cdist
-from rotation_helpers import rotvec_to_rotation
+from .rotation_helpers import rotvec_to_rotation, rotation_to_rotvec
 
 class Constraint():
-    def __init__(self, params_init):
-        # in: params_init is a dictionary which sets the parameters to be optimized, their dimensions, and their initial values 
+    def __init__(self, params_init, skip_opt = False):
+        # in: params_init is a dictionary which sets the parameters to be optimized, their dimensions, and their initial values
+        # in: skip_opt loads the initial params as the final params, skipping the optimization
         self.params = DecisionVarSet(x0 = params_init) # builds a dec var set with init value x0, optional params xlb xub
         print("Initializing a Constraint with following params:")
         print(self.params)
+        self.linear = False
+        if(skip_opt):
+            self.params = params_init
     
     def fit(self, data, h_inf = True):
         # in: data is the trajectory that we measure from the demonstration
@@ -29,7 +35,7 @@ class Constraint():
             self.params['slack'] = DecisionVar(x0 = [0.5], lb = [0.0], ub = [0.1])
             loss += data.shape[0]*self.params['slack']
             ineq_constraints = [ca.fabs(self.violation(d))-self.params['slack'] for d in data]
-            
+
         # get dec vars; x is symbolic decision vector of all params, lbx/ubx lower/upper bounds
         x, lbx, ubx = self.params.get_dec_vectors()
         x0 = self.params.get_x0()
@@ -41,7 +47,7 @@ class Constraint():
         sol = solver(x0 = x0, lbx = lbx, ubx = ubx)
         self.params.set_results(sol['x'])
         print(self.params)
-        #self.get_jac()
+        self.get_jac()
         return self.params
  
     def violation(self, x: object) -> object:
@@ -51,30 +57,45 @@ class Constraint():
     def get_jac(self):
         # jacobian constructed at x_sym
         if not hasattr(self,"jac_fn"):
-            x_sym = ca.SX.sym("x_sym",6)
-            R_sym = rotvec_to_rotation(x_sym[3:])
-            rot = ca.vertcat(R_sym, ca.SX(1,3))
-            pos = ca.vertcat(x_sym[:3], ca.SX(1))
-            T_sym = ca.horzcat(rot,pos)  # simbolic transformation matrix
-            h = self.violation(T_sym)
-            self.jac = ca.jacobian(h, x_sym)
-            self.jac_fn = ca.Function('self.jac_fn', [x_sym], [self.jac])
-            self.jac_pinv = ca.pinv(self.jac)
-            self.jac_pinv_fn = ca.Function('self.jac_pinv_fn', [x_sym], [self.jac_pinv])
-
-        return self.jac_fn, self.jac_pinv_fn
+            if self.linear:
+                x_sym = ca.SX.sym("x_sym",3)
+                h = self.violation(x_sym)
+                self.jac = ca.jacobian(h,x_sym)
+                self.jac_fn = ca.Function('jac_fn', [x_sym], [self.jac])
+                self.jac_pinv = ca.pinv(self.jac)
+                self.jac_pinv_fn = ca.Function('jac_pinv_fn', [x_sym], [self.jac_pinv])
+            else:
+                x_sym = ca.SX.sym("x_sym",6)
+                R_sym = rotvec_to_rotation(x_sym[3:])
+                rot = ca.vertcat(R_sym, ca.SX(1,3))
+                pos = ca.vertcat(x_sym[:3], ca.SX(1))
+                T_sym = ca.horzcat(rot,pos)  # simbolic transformation matrix
+                h = self.violation(T_sym)
+                self.jac = ca.jacobian(h, x_sym)
+                self.jac_fn = ca.Function('jac_fn', [x_sym], [self.jac])
+                self.jac_pinv = ca.pinv(self.jac)
+                self.jac_pinv_fn = ca.Function('jac_pinv_fn', [x_sym], [self.jac_pinv])
 
     def get_similarity(self, x, f):
         # IN: x is a numerical value for a pose
         # IN: f is the numerical value for measured force
-        # TODO add the least squares residual calculation
-        # TODO check x and f are same dim
+        if self.linear == True:
+            self.jac_fn()
+            self.jac_pinv_fn
+            f = f[:3]
+            x = x[:3,-1]
+        else:
+            self.jac_fn()
+            self.jac_pinv_fn()
+            pos = x[:3,-1]
+            rot = x[:3,:3]
+            rot_vec = rotation_to_rotvec(rot)
+            x = np.concatenate((pos,rot_vec))
 
-        assert (x.shape == f.shape)
-        jac_fn = self.get_jac()
-        self.jac_fn()
-        return ca.norm_2(f-self.jac_fn(x).T@(f@self.jac_pinv_fn(x))).full()
-        raise NotImplementedError
+        return ca.norm_2(ca.SX(f)-self.jac_fn(x).T@(ca.SX(f).T@self.jac_pinv_fn(x)))
+
+    def save(self):
+        return (type(self), self.params)
 
 class PointConstraint(Constraint):
     # a point on the rigidly held object is fixed in world coordinates
@@ -98,6 +119,7 @@ class CableConstraint(Constraint):
 
         #params_init = {'rest_pt': np.array([0, 0, 0])}
         Constraint.__init__(self, params_init)
+        self.linear = True  # flag variable to switch between full jacobian and linear one
         #self.params['radius_1'] = DecisionVar(x0=[0.5], lb=[0.0], ub=[10])
     def regularization(self):
         return 0.001 * self.params['radius_1']
@@ -174,7 +196,7 @@ class DoublePointConstraint2(Constraint):
         Constraint.__init__(self, params_init)
 
     def regularization(self):
-        return ca.fabs(ca.norm_2(self.params['pt_0'] - self.params['pt_1']) - .1)\
+        return ca.fabs(ca.norm_2(self.params['pt_0'] - self.params['pt_1']) - .20)\
             +  ca.fabs(ca.norm_2(self.params['plane_normal']) - 1)
         # length of norm is one
 
@@ -186,39 +208,76 @@ class DoublePointConstraint2(Constraint):
         delta_pt1 = ca.fabs(ca.dot(x_pt_1, plane_normal) - self.params['d'])
         return ca.vertcat(delta_pt0, delta_pt1)
 
+class DoublePointConstraint3(Constraint):
+    # a point on the rigidly held object is fixed in world coordinates
+    def __init__(self):
+        params_init = {'pt_0': np.array([0.05, 0, 0]),  # first contact point in the object frame, which changes wrt 'x'
+                       'pt_1': np.array([-0.05, 0, 0]), # second contact point in the object frame, which changes wrt 'x'
+                       'plane_normal': np.array([1, 0, 0]), # position of the plane contact in world coordinates ax + bx + cx = d
+                       'd': np.array([1]), # position of the plane contact in world coordinates
+                       'radius_0_0': np.array([1]),
+                       'radius_0_1': np.array([1]),
+                       'radius_1_0': np.array([1]),
+                       'radius_1_1': np.array([1]),
+                       'radius_2_0': np.array([1]),
+                       'radius_2_1': np.array([1]),
+                       'radius_3_0': np.array([1]),
+                       'radius_3_1': np.array([1]),
+                       }
+        Constraint.__init__(self, params_init)
 
+    def regularization(self):
+        return ca.fabs(ca.norm_2(self.params['pt_0'] - self.params['pt_1']) - .20)\
+            +  ca.fabs(ca.norm_2(self.params['plane_normal']) - 1)
+        # length of norm is one
+
+    def violation(self, x):
+        loss =  ca.fabs(self.params['radius_0_0'] - ca.norm_2(x[0, :3] - self.params['pt_0']))
+        loss += ca.fabs(self.params['radius_1_0'] - ca.norm_2(x[1, :3] - self.params['pt_0']))
+        loss += ca.fabs(self.params['radius_2_0'] - ca.norm_2(x[2, :3] - self.params['pt_0']))
+        loss += ca.fabs(self.params['radius_3_0'] - ca.norm_2(x[3, :3] - self.params['pt_0']))
+        loss += ca.fabs(self.params['radius_0_1'] - ca.norm_2(x[0, :3] - self.params['pt_1']))
+        loss += ca.fabs(self.params['radius_1_1'] - ca.norm_2(x[1, :3] - self.params['pt_1']))
+        loss += ca.fabs(self.params['radius_2_1'] - ca.norm_2(x[2, :3] - self.params['pt_1']))
+        loss += ca.fabs(self.params['radius_3_1'] - ca.norm_2(x[3, :3] - self.params['pt_1']))
+        return ca.vertcat(loss, loss)
 
 class ConstraintSet():
-    def __init__(self, dataset):
-        clusters = self.cluster(dataset)
-        self.constraints = [] # list of constraints
-        for cluster in clusters:
-            c_type = self.id_constraint_pos(cluster)
-            c_fit = self.fit_constraint(cluster, c_type)
-            self.constraints.add(c_fit)
-        
-    def cluster(self, dataset):
-        clusters = [] # list of partitioned data
-        return clusters
+    def __init__(self):
+        self.constraints = {}
 
-    def fit_constraint(self, data, c_type):
-        pass
-    
-    def id_constraint_pos(self, x):
-        # identify which constraint type is most likely given the pose
-        pass
-    
+    def fit(names, constraints, datasets):
+        # in: datasets is a list of clustered data, in order.
+        # in: constraints is a list of constraint objects, in order.
+        for name, const, data in zip(names, self.constraints, datasets):
+            self.constraints[name] = const.fit(data)
+
+    def load(file_path):
+        # does some loading of the constraints
+        save_dict # load pickle file
+        for name in save_dict.keys():
+            # first element in tuple is the type, 2nd is the params
+            # we are calling the type to construct the object, with argument of the params
+            self.constraints[name] = save_dict[name][0](save_dict[name][1], skip_opt = True) 
+
+    def save(file_path):
+        # save name, ConstraintType, params
+        save_dict = {name: self.constraints[name].save() for name in self.constraints.keys()}
+
+
     def id_constraint_force(self, x, f):
         # identify which constraint is most closely matching the current force
         for constr in self.constraints:
-            sim_score = constr.get_similarity(x, F)
+            sim_score = constr.get_similarity(x, f)
         pass
 
 if __name__ == "__main__":
-    from dataload_helper import point_c_data, plug, rake
-    from visualize import plot_x_pt_inX, plot_3d_points_segments
+    from .dataload_helper import point_c_data, plug, rake, data
+    from .visualize import plot_x_pt_inX, plot_3d_points_segments
 
-    cable = True
+    from .controller import Controller
+
+    cable = False
 
     if cable:
         pts_1 = plug(index=1, segment=True).load()[1]
@@ -226,9 +285,30 @@ if __name__ == "__main__":
         pts_3 = plug(index=3, segment=True).load()[1]
         pts_L = [pts_1, pts_2, pts_3]
 
-        T=np.eye(4)
+        names = ['cable_fixture', 'front_pivot']
+        c_set = ConstraintSet(names)
 
-        plug().save(specifier='T', T=T, index=1)
+        constraints =  [PointConstraint(),
+                        PointConstraint()] # list of constraints
+        #T=np.eye(4)
+
+        # Faire le testing du save
+        constraint = CableConstraint()
+        params = constraint.fit(pts_3, h_inf=True)
+        try:
+            cont = Controller(constraint)
+            cont.loop()
+        finally:
+            cont.stop()
+
+        with open('models/cable.pkl', 'wb') as f:
+            pickle.dump(constraint, f)
+
+        print(
+            f"** Ground truth **\nradius_1:\n: {0.28}\nrest_pt:\n: {np.array([-0.31187662, -0.36479221, -0.03707742])}")
+        #plot_3d_points_segments(L=[pts_1], radius=params['radius_1'], rest_pt=params['rest_pt'], exp_n=1)
+
+        data().save_data(data=constraint ,constraint="cable", specifier='1')
 
         """
         for i in range(3):
@@ -249,15 +329,16 @@ if __name__ == "__main__":
 
         #plot_3d_points_segments(L=pts, rest_pt=params['rest_pt'])
     else:
-        pose_data, segments, time = rake(index=3, segment=True).load(pose=True, kp_delta_th=0.005)
-        kp_data, segments, time = rake(index=3, segment=True).load(pose=False, kp_delta_th=0.005)
 
-        plot_x_pt_inX(L_pt=kp_data[1])
+        constraint = DoublePointConstraint3()
+        constraint2 = DoublePointConstraint2()
+        ty = constraint.save()[0]
+        print(f"saved constraint "+str(constraint.save()[0]))
 
-        #constraint = DoublePointConstraint()
-        #params = constraint.fit(pose_data[1], h_inf=True)
-        #L_pt = [params['pt_0'], params['pt_1']]
-        #plane = [params['plane_normal'], params['d']]
-        #plot_x_pt_inX(L_pt=L_pt, X=pose_data[1], plane=plane)
+        with open('contact_monitoring/models/type.pkl', 'wb') as f:
+            pickle.dump(ty, f)
 
+        reconstraint = pickle.load(open('contact_monitoring/models/type.pkl', 'rb'))()
+        print(f"recreated const "+str(type(reconstraint)))
+        #print(f"constraint id {id(constraint2)}")
 

@@ -3,57 +3,54 @@ import os
 from time import sleep
 
 # Standard libraries
-import urx
+# import urx
 import numpy as np
 import pickle
-import sys
-
-import kp2pose
-
-# setting path
-Shared_parent_folder = ''
-sys.path.append('../'+Shared_parent_folder)
-from Path_from_Shared_parent_folder_2Thesis.Thesis import *
-
-#TODO
-# Setup Shared_parent_folder
-# __init__ needs robot and camera
 
 # Local project files
-#from constraint import *
+from camera import cvf, camera2, helper_functions
+from camera.skripts import main
+#from camera.robot2 import Robot
+from urx import Robot
+from . import kp2pose
+
+from .constraint import *
+from .rotation_helpers import xyz_to_rotation
 
 class Controller():
-    def __init__(self, c_set = 'constraints_set.pkl'):
+    def __init__(self, constraint): #c_set = 'constraints_set.pkl'):
         # Load all constraints things
         #self.load_constraints(c_set)
+        self.constraint = constraint
+
+        self.cam = None
+        #self.init_camera()
+        self.init_robot(cam = self.cam)
         self.tcp_to_obj = None # Pose of object in TCP frame
-
-        # Init robot etc
-        self.init_robot()
-        #self.loop()
-
-        self.tcp_to_obj = None # Pose of object in TCP frame
-
-        self.obj_kp = main.object_data(camera=camera, robot=robot)
-        self.obj_name = "plug"
 
     def load_constraints(self, c_file):
         with open(c_file) as f:
             self.c_set = pickle.load(f)
 
-    def init_robot(self):
+    def init_camera(self):
+        self.cam = camera2.Camera()
+        self.cam.streaming()
+        self.obj_kp = main.object_data(camera=self.cam, robot=self.rob)
+        self.obj_name = "plug"
+
+    def init_robot(self, cam = None):
         try:
-            self.rob = urx.Robot(host="192.168.29.102", use_rt=True)
+            #self.rob = Robot(cam = cam)
+            self.rob = Robot(host="192.168.29.102", use_rt=True)
         except:
             print("Error opening robot connection")
             self.stop()
-
 
     def get_robot_data(self):
         # Get the TCP pose and forces from robot
         f = np.array(self.rob.get_tcp_force(wait=True))
         x_tcp = np.array(self.rob.getl(wait=True))
-        print(f'Got robot data: \n  tcp {x_tcp}    force {f}')
+        #print(f'Got robot data: \n  tcp   {x_tcp} \n  force {f}')
         return x_tcp, f
 
     def get_object_data(self):
@@ -62,13 +59,17 @@ class Controller():
         return x_obj, f
 
     def speedl(self):
-        vel_null = [0.00, 0.0, 0.0, 0.0, 0.0, 0.0]
-        vels = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+        vel_null = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+        vels = [-0.2, 0.0, 0.0, 0.0, 0.0, 0.0]
+        vels2 = [0.0, 0.0, -0.2, 0.0, 0.0, 0.0]
         accs = 0.01
 
         print('Setting robot speed')
         self.rob.speedl_tool(velocities=vels, acc=accs, min_time=10.0)
         sleep(5.0)
+        print('Setting robot speed2')
+        self.rob.speedl_tool(velocities=vels2, acc=accs, min_time=10.0)
+        sleep(6.0)
         print('Sending zero vel')
         self.rob.speedl_tool(velocities=vel_null, acc=accs, min_time=0.1) # Abrupt stop even with 1.0 for min_time
         print('Ending robot speed')
@@ -77,7 +78,14 @@ class Controller():
         # Control loop, runs til kill
         while(True):
             x_tcp, f_tcp = self.get_robot_data()
-            sleep(0.1)
+            R_tcp = xyz_to_rotation(x_tcp[3:])
+            p = np.expand_dims(np.array(x_tcp[:3]),0)
+            T_tcp = np.hstack((np.vstack((R_tcp, np.zeros((1,3)))),
+                              np.vstack((p.T,np.array(1)))))
+            sim = self.constraint.get_similarity(T_tcp, f_tcp)
+            print(f'similarity: {sim}')
+            #print(f'recieved {f_tcp}')
+            #sleep(0.1)
             #constraint_mode = self.c_set.id_constraint(x_tcp, f_tcp)
 
 
@@ -117,7 +125,7 @@ if __name__ == '__main__':
     print("starting controller!!!")
     try:
         controller = Controller()
-        # controller.speedl()
+        #controller.speedl()
         controller.loop()
     finally:
         controller.stop()

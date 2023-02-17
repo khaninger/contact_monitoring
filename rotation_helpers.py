@@ -12,6 +12,7 @@ def rotvec_to_rotation(vec):
     rot = ty.zeros(3,3)
     phi_ = ca.sqrt(ca.sumsqr(vec))
     phi = ca.if_else(phi_<1e-9, 1e-9, phi_)
+    #phi = ca.if_else(phi>2*np.pi, phi-2*np.pi, phi)
     kx = vec[0]/phi
     ky = vec[1]/phi
     kz = vec[2]/phi
@@ -30,6 +31,31 @@ def rotvec_to_rotation(vec):
     rot[2,2] =  kz*kz*vp   +cp
     return rot
 
+def rotation_to_rotvec(R):
+    # http://scipp.ucsc.edu/~haber/ph216/rotation_12.pdf, (20), (27), (32)
+    # also see scipy https://github.com/scipy/scipy/blob/a4bed793057026b86dc8fb12a5fd69813da8a728/scipy/spatial/transform/_rotation.pyx#L879
+
+    tr = ca.trace(R)
+    theta = ca.acos(0.5*(tr-1)) # rotation about the axis in radians
+
+    r = ca.vertcat(R[2,1]-R[1,2], # axis about which the rotation occurs
+                   R[0,2]-R[2,0],
+                   R[1,0]-R[0,1])
+
+    # There's two degenerate cases, when tr = -1 or 3
+    # We handle that in two nested if_else's,
+    # normalizing r only when both are false. 
+    
+    r = ca.if_else(ca.fabs((tr + 1.0))<1e-9,
+                   ca.vertcat(ca.sqrt(0.5*(1+R[0,0])),
+                              ca.sqrt(0.5*(1+R[1,1])),
+                              ca.sqrt(0.5*(1+R[2,2]))),
+                   ca.if_else(ca.fabs((tr - 3.0))<1e-9,
+                              ca.DM.zeros(3),
+                              r/ca.sqrt((3-tr)*(1+tr))))
+
+    return r*theta
+    
 def rotvec_to_quat(r):
     norm_r = ca.norm_2(r)
     th_2 = norm_r/2.0
