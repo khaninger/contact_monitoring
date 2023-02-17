@@ -3,15 +3,15 @@ import os
 from time import sleep
 
 # Standard libraries
-# import urx
 import numpy as np
 import pickle
+from urx import Robot
+#import rospy
 
 # Local project files
 from camera import cvf, camera2, helper_functions
 from camera.skripts import main
 #from camera.robot2 import Robot
-from urx import Robot
 from . import kp2pose
 
 from .constraint import *
@@ -27,10 +27,6 @@ class Controller():
         #self.init_camera()
         self.init_robot(cam = self.cam)
         self.tcp_to_obj = None # Pose of object in TCP frame
-
-    def load_constraints(self, c_file):
-        with open(c_file) as f:
-            self.c_set = pickle.load(f)
 
     def init_camera(self):
         self.cam = camera2.Camera()
@@ -87,7 +83,6 @@ class Controller():
             #print(f'recieved {f_tcp}')
             #sleep(0.1)
             #constraint_mode = self.c_set.id_constraint(x_tcp, f_tcp)
-
 
     def stop(self):
         try:
