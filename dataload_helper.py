@@ -75,6 +75,9 @@ class plug(data):
             if self.segment:
                 dataset_segments = []
                 for segment in range(int(max(dataset[:, -1])) + 1):
+                    T = np.eye(4)
+                    T[:3,-1] = dataset[dataset[:, -1] == segment, :3]
+                    print(T)
                     dataset_segments.append(dataset[dataset[:, -1] == segment, :3])
                 print(
                     f"Dataset contains {len(dataset_segments)} segments:")
