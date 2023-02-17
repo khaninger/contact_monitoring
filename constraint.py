@@ -59,7 +59,8 @@ class Constraint():
     def get_jac(self): # construct the jacobian and pinv
         if self.linear:
             x_sym = ca.SX.sym("x_sym",3)
-            T_sym = rotvec_pose_to_tmat(ca.vertcat(x_sym, ca.SX(3)))
+            x_sym_aug = ca.vertcat(x_sym, ca.DM.zeros(3))
+            T_sym = rotvec_pose_to_tmat(x_sym_aug)
         else:
             x_sym = ca.SX.sym("x_sym",6)
             T_sym = rotvec_pose_to_tmat(x_sym)
@@ -108,6 +109,7 @@ class CableConstraint(Constraint):
         return 0.001 * self.params['radius_1']
 
     def violation(self, x):
+        print(x)
         return self.params['radius_1'] - ca.norm_2(x[:3,-1] - self.params['rest_pt'])
 
     def violation2(self, x):
@@ -255,19 +257,20 @@ class ConstraintSet():
 
 if __name__ == "__main__":
     import os
-    from .dataload_helper import point_c_data, plug, rake, data
+    from .dataload_helper import data
     from .visualize import plot_x_pt_inX, plot_3d_points_segments
 
     from .controller import Controller
 
-    cable = False
+    cable = True
 
     if cable:
         for i in range(3):
             ind = i+1
-            pts = plug(index=ind, segment=True).load()[1]
+            pts, _, _ = data(index=ind, segment=True, data_name='plug').load(pose=True, kp_delta_th=0.005)
+            print(pts[1].shape)
             constraint = CableConstraint()
-            params = constraint.fit(pts, h_inf=True)
+            params = constraint.fit(pts[1], h_inf=True)
             print(
             f"** Ground truth **\nradius_1:\n: {0.28}\nrest_pt:\n: {np.array([-0.31187662, -0.36479221, -0.03707742])}")
 

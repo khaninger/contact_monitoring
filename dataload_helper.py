@@ -22,7 +22,7 @@ class data():
 
             dataset = np.array(pickle.load(open(self.path, "rb")))
             n_dataset = len(dataset)
-            print(f"\nLoaded {n_dataset} samples from rake dataset {self.index}")
+            print(f"\nLoaded {n_dataset} samples from {self.path} dataset {self.index}")
 
             dataset_len = 0
 
@@ -98,8 +98,6 @@ class data():
 
         else:
             print(f"No data at {self.path}")
-
-
 
 
 if __name__ == "__main__":
