@@ -5,12 +5,7 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="4996e4d5-555e-4ec5-a3d4-2a95c4043bd5" name="Changes" comment="Ad visualize.py">
-      <change afterPath="$PROJECT_DIR$/dataloader_helper2.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/constraint.py" beforeDir="false" afterPath="$PROJECT_DIR$/constraint.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/constraint_param_fit_test.ipynb" beforeDir="false" afterPath="$PROJECT_DIR$/constraint_param_fit_test.ipynb" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/dataload_helper.py" beforeDir="false" afterPath="$PROJECT_DIR$/dataload_helper.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/rotation_helpers.py" beforeDir="false" afterPath="$PROJECT_DIR$/rotation_helpers.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -39,7 +34,7 @@
   "keyToString": {
     "RunOnceActivity.OpenProjectViewOnStart": "true",
     "RunOnceActivity.ShowReadmeOnStart": "true",
-    "last_opened_file_path": "/home/ipk410/converging",
+    "last_opened_file_path": "/home/ipk410/hegechri/Thesis",
     "settings.editor.selected.configurable": "PyConsoleConfigurable.Python Console"
   }
 }]]></component>

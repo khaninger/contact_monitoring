@@ -7,11 +7,12 @@ import numpy as np
 import pickle
 #from urx import Robot
 import rospy
-#TODO add messages
+from geometry_msgs.msg import WrenchStamped
+import tf
 
 # Local project files
-from camera import cvf, camera2, helper_functions
-from camera.skripts import main
+#from camera import cvf, camera2, helper_functions
+#from camera.skripts import main
 #from camera.robot2 import Robot
 from . import kp2pose
 
@@ -19,18 +20,15 @@ from .constraint import *
 from .rotation_helpers import xyz_to_rotation
 
 class Controller():
-    def __init__(self, constraint): #c_set = 'constraints_set.pkl'):
-        # Load all constraints things
-        #self.load_constraints(c_set)
-        self.constraint = constraint
-
+    def __init__(self):
         self.cam = None
         #self.init_camera()
-        self.init_robot(cam = self.cam)
+        #self.init_robot(cam = self.cam)
+        self.init_ros()
         self.tcp_to_obj = None # Pose of object in TCP frame
 
         self.f_tcp = None
-        self.T_tcp = None
+        self.T_tcp = np.eye(4)
 
     def init_camera(self):
         self.cam = camera2.Camera()
@@ -39,41 +37,33 @@ class Controller():
         self.obj_name = "plug"
 
     def init_ros(self):
-        self.force_sub = rospy.Subscriber('tcp_force', JointState,
+        self.listener = tf.TransformListener()
+        self.force_sub = rospy.Subscriber('wrench', WrenchStamped,
                                           self.force_callback, queue_size=1)
-        self.tcp_sub =   rospy.Subscriber('x_tcp', JointState,
-                                          self.tcp_callback, queue_size=1)
 
-    def tcp_callback(self, msg):
+    def tcp_process(self):
+        (trans,rot) = self.listener.lookupTransform('base', 'tool0', rospy.Time(0))
         try:
-            self.T_tcp[:3,-1] = np.array(msg.position)
-            self.T_tcp[:3,:3] = quat_to_rotation(np.array(msg.quaternion))
+            self.T_tcp[:3,-1] = np.array(trans)
+            self.T_tcp[:3,:3] = quat_to_rotation(np.vstack((rot[3], rot[0], rot[1], rot[2])))
         except:
             print("Error loading ROS message in joint_callback")
-                
+
     def force_callback(self, msg):
         try:
-            self.f_tcp = msg.effort[:6]
+            self.f_tcp = np.vstack((msg.wrench.force.x,  msg.wrench.force.y,  msg.wrench.force.z,
+                                    msg.wrench.torque.x, msg.wrench.torque.y, msg.wrench.torque.z))
         except:
             print("Error loading ROS message in force_callback")
+        self.tcp_process()
 
     def shutdown(self):
         #TODO add sending all zeros on the TCP cmd interface
         print("Shutting down controller")
-    
+
     def loop(self):
-        # Control loop, runs til kill
-        while(True):
-            x_tcp, f_tcp = self.get_robot_data()
-            R_tcp = xyz_to_rotation(x_tcp[3:])
-            p = np.expand_dims(np.array(x_tcp[:3]),0)
-            T_tcp = np.hstack((np.vstack((R_tcp, np.zeros((1,3)))),
-                              np.vstack((p.T,np.array(1)))))
-            sim = self.constraint.get_similarity(T_tcp, f_tcp)
-            print(f'similarity: {sim}')
-            #print(f'recieved {f_tcp}')
-            #sleep(0.1)
-            #constraint_mode = self.c_set.id_constraint(x_tcp, f_tcp)
+        sim = self.constraint.get_similarity(self.T_tcp, self.f_tcp)
+        print(f'similarity: {sim}')
 
     def def_grip2object_pose(self, set=True):
         if set:
