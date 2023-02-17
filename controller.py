@@ -5,8 +5,9 @@ from time import sleep
 # Standard libraries
 import numpy as np
 import pickle
-from urx import Robot
-#import rospy
+#from urx import Robot
+import rospy
+#TODO add messages
 
 # Local project files
 from camera import cvf, camera2, helper_functions
@@ -28,48 +29,38 @@ class Controller():
         self.init_robot(cam = self.cam)
         self.tcp_to_obj = None # Pose of object in TCP frame
 
+        self.f_tcp = None
+        self.T_tcp = None
+
     def init_camera(self):
         self.cam = camera2.Camera()
         self.cam.streaming()
         self.obj_kp = main.object_data(camera=self.cam, robot=self.rob)
         self.obj_name = "plug"
 
-    def init_robot(self, cam = None):
+    def init_ros(self):
+        self.force_sub = rospy.Subscriber('tcp_force', JointState,
+                                          self.force_callback, queue_size=1)
+        self.tcp_sub =   rospy.Subscriber('x_tcp', JointState,
+                                          self.tcp_callback, queue_size=1)
+
+    def tcp_callback(self, msg):
         try:
-            #self.rob = Robot(cam = cam)
-            self.rob = Robot(host="192.168.29.102", use_rt=True)
+            self.T_tcp[:3,-1] = np.array(msg.position)
+            self.T_tcp[:3,:3] = quat_to_rotation(np.array(msg.quaternion))
         except:
-            print("Error opening robot connection")
-            self.stop()
+            print("Error loading ROS message in joint_callback")
+                
+    def force_callback(self, msg):
+        try:
+            self.f_tcp = msg.effort[:6]
+        except:
+            print("Error loading ROS message in force_callback")
 
-    def get_robot_data(self):
-        # Get the TCP pose and forces from robot
-        f = np.array(self.rob.get_tcp_force(wait=True))
-        x_tcp = np.array(self.rob.getl(wait=True))
-        #print(f'Got robot data: \n  tcp   {x_tcp} \n  force {f}')
-        return x_tcp, f
-
-    def get_object_data(self):
-        # Get the object coordinates
-        x_tcp, f = self.get_robot_data()
-        return x_obj, f
-
-    def speedl(self):
-        vel_null = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
-        vels = [-0.2, 0.0, 0.0, 0.0, 0.0, 0.0]
-        vels2 = [0.0, 0.0, -0.2, 0.0, 0.0, 0.0]
-        accs = 0.01
-
-        print('Setting robot speed')
-        self.rob.speedl_tool(velocities=vels, acc=accs, min_time=10.0)
-        sleep(5.0)
-        print('Setting robot speed2')
-        self.rob.speedl_tool(velocities=vels2, acc=accs, min_time=10.0)
-        sleep(6.0)
-        print('Sending zero vel')
-        self.rob.speedl_tool(velocities=vel_null, acc=accs, min_time=0.1) # Abrupt stop even with 1.0 for min_time
-        print('Ending robot speed')
-
+    def shutdown(self):
+        #TODO add sending all zeros on the TCP cmd interface
+        print("Shutting down controller")
+    
     def loop(self):
         # Control loop, runs til kill
         while(True):
@@ -83,12 +74,6 @@ class Controller():
             #print(f'recieved {f_tcp}')
             #sleep(0.1)
             #constraint_mode = self.c_set.id_constraint(x_tcp, f_tcp)
-
-    def stop(self):
-        try:
-            self.rob.close()
-        except:
-            pass
 
     def def_grip2object_pose(self, set=True):
         if set:
@@ -116,11 +101,13 @@ class Controller():
     def T_conpose2base(self, T_tcp2base):
         return T_tcp2base@self.T_kp2tcp
 
+def start_node():
+    rospy.init_node('contact_observer')
+    controller = Controller()
+    rospy.on_shutdown(controller.shutdown)
+    rospy.spin()
+    
 if __name__ == '__main__':
-    print("starting controller!!!")
-    try:
-        controller = Controller()
-        #controller.speedl()
-        controller.loop()
-    finally:
-        controller.stop()
+    start_node()
+
+    
