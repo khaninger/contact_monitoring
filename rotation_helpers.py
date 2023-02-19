@@ -6,6 +6,11 @@ def cross(a,b):
                       a[2]*b[0]-a[0]*b[2],
                       a[0]*b[1]-a[1]*b[0])
 
+def transform_pt(T, x):
+    if type(T) is np.ndarray:
+        T = ca.DM(T)
+    return (T @ ca.vertcat(x, ca.SX(1)))[:3]
+
 #### Rotation vectors ####
 def rotvec_to_rotation(vec):
     ty = ca.SX if type(vec) is ca.SX else ca.DM

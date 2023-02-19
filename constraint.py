@@ -3,7 +3,6 @@ import numpy as np
 import pickle
 
 from .decision_vars import DecisionVar, DecisionVarSet
-
 from .rotation_helpers import *
 
 class Constraint():
@@ -11,20 +10,21 @@ class Constraint():
         # IN: params_init is a dictionary which sets the parameters to be optimized, their dimensions, and their initial values
         # IN: skip_opt loads the initial params as the final params, skipping the optimization
         self.params = DecisionVarSet(x0 = params_init) # builds a dec var set with init value x0, optional params xlb xub
-        print("Initializing a Constraint with following params:")
-        print(self.params)
         self.linear = False  # indicates that the constraint only depends on linear translation, not orientation
 
     def set_params(self, params_init):
         # IN: params_init is a dictionary of the form of self.params
-        print("Skipping Optimization and just init params")
-        print(f"**Params**\n{params_init}")
+        print(f"Skipping fit on a {str(type(self))} \n-> just setting params")
+        print(params_init)
         self.params = params_init
         self.get_jac()
 
     def fit(self, data, h_inf = True):
         # IN: data is the trajectory that we measure from the demonstration
         # IN: h_inf activates the hinf penalty and inequality constraints in the optimization problem
+        print(f"Fitting {str(type(self))} \n-> with following params:")
+        print(self.params)
+
         loss = 0
         ineq_constraints = []
 
@@ -42,42 +42,49 @@ class Constraint():
         x0 = self.params.get_x0()
         args = dict(x0=x0, lbx=lbx, ubx=ubx, p=None, lbg=-np.inf, ubg=np.zeros(len(ineq_constraints)))
         prob = dict(f=loss, x=x, g=ca.vertcat(*ineq_constraints))
-        solver = ca.nlpsol('solver', 'ipopt', prob)
+        solver = ca.nlpsol('solver', 'ipopt', prob, {'ipopt.print_level':0})
 
         # solve, print and return
         sol = solver(x0 = x0, lbx = lbx, ubx = ubx)
         self.params.set_results(sol['x'])
-        print(self.params)
         self.get_jac()
+        print(f"Optimized params: \n {self.params}")
         return self.params
 
-    def violation(self, x): # constraint violation for a transformation matrix x
+    def violation(self, T): # constraint violation for a transformation matrix T
         raise NotImplementedError
-
+        
     def get_jac(self): # construct the jacobian and pinv
-        if self.linear:
-            x_sym = ca.SX.sym("x_sym",3)
-            x_sym_aug = ca.vertcat(x_sym, ca.DM.zeros(3))
-            T_sym = rotvec_pose_to_tmat(x_sym_aug)
-        else:
-            x_sym = ca.SX.sym("x_sym",6)
-            T_sym = rotvec_pose_to_tmat(x_sym)
+        x_sym = ca.SX.sym("x_sym",3+3*(not self.linear))
+        T_sym = self.pose_to_tmat(x_sym)
         h = self.violation(T_sym)
         self.jac = ca.jacobian(h, x_sym)
         self.jac_fn = ca.Function('jac_fn', [x_sym], [self.jac])
         self.jac_pinv = ca.pinv(self.jac)
         self.jac_pinv_fn = ca.Function('jac_pinv_fn', [x_sym], [self.jac_pinv])
 
-    def get_similarity(self, x, f):
-        # IN: x is a numerical value for a pose
+    def get_similarity(self, T, f):
+        # IN: T is a transformation matrix for pose
         # IN: f is the numerical value for measured force
-        if self.linear == True:
+        x = self.tmat_to_pose(T)
+        if self.linear:
             f = f[:3]
-            x = x[:3,-1]
-        else:
-            x = tmat_to_rotvec_pose(x)
         return ca.norm_2(ca.SX(f)-self.jac_fn(x).T@(ca.SX(f).T@self.jac_pinv_fn(x)))
 
+    def pose_to_tmat(self, x): # x is the pose representation
+        if self.linear:
+            x_aug = ca.vertcat(x, ca.DM.zeros(3))
+            T = rotvec_pose_to_tmat(x_aug)
+        else:
+            T = rotvec_pose_to_tmat(x)
+        return T
+        
+    def tmat_to_pose(self, T): # T is the transformation matrix
+        if self.linear:
+            return T[:3,-1]
+        else:
+            return tmat_to_rotvec_pose(T)
+    
     def save(self):
         return (type(self), self.params)
 
@@ -89,29 +96,28 @@ class PointConstraint(Constraint):
                        'rest_pt': np.zeros(3)} # resting position of the point contact in world coordinates
         Constraint.__init__(self, params_init)
 
-    def violation(self, x):
-        # in: x is the object pose in a 4x4 transformation matrix
-        print(x)
-        x_pt = x @ ca.vertcat(self.params['pt'], ca.SX(1))  # Transform 'pt' into world coordinates
-        return ca.norm_2(x_pt[:3]-self.params['rest_pt'])
+    def violation(self, T):
+        # in: T is the object pose in a 4x4 transformation matrix
+        x_pt = transform_pt(T, self.params['pt'])  # Transform 'pt' into world coordinates
+        return ca.norm_2(x_pt - self.params['rest_pt'])
 
 class CableConstraint(Constraint):
     # a point on the rigidly held object is fixed in world coordinates
     def __init__(self):
         params_init = {'radius_1': np.array([0.5]),
-                       'rest_pt': np.array([0, 0, 0])}
+                       'rest_pt':  np.array([0, 0, 0])}
         Constraint.__init__(self, params_init)
         self.linear = True  # flag variable to switch between full jacobian and linear one
 
     def regularization(self):
         return 0.001 * self.params['radius_1']
 
-    def violation(self, x):
-        print(x)
-        return self.params['radius_1'] - ca.norm_2(x[:3,-1] - self.params['rest_pt'])
+    def violation(self, T):
+        x = self.tmat_to_pose(T)
+        return self.params['radius_1'] - ca.norm_2(x - self.params['rest_pt'])
 
     def violation2(self, x):
-        return self.params['radius_1'] - ca.exp(1+10*ca.norm_2(x[:3,-1] - self.params['rest_pt']))
+        return self.params['radius_1'] - ca.exp(1+10*ca.norm_2(x - self.params['rest_pt']))
 
 class LineOnSurfaceConstraint(Constraint):
     # A line on the object is flush on a surface, but is free to rotate about that surface
@@ -123,19 +129,19 @@ class LineOnSurfaceConstraint(Constraint):
                        }
         Constraint.__init__(self, params_init)
 
-    def violation(self, x):
-        # in: x is a pose for the object
+    def violation(self, T):
+        # in: T is a tmat for the object
         # alignment error
-        line_in_space = x @ ca.vertcat(self.params['line_orient'], ca.SX(1))
-        misalign = line_in_space[:3].T@self.params['surf_normal'] #these should be orthogonal, so dot product zero
+        line_in_space = transform_pt(T,self.params['line_orient'])
+        misalign = line_in_space.T@self.params['surf_normal'] #these should be orthogonal, so dot product zero
 
         # displacement error between point on line and plane
         # https://en.wikipedia.org/wiki/Distance_from_a_point_to_a_plane 'hyperplane and arbitary point'
-        line_pt_in_world = x @ ca.vertcat(self.params['line_pt_on_obj'], ca.SX(1))
+        line_pt_in_world = transform_pt(T, self.params['line_pt_on_obj'])
         displace = ca.abs(self.params['surf_normal'].T@line_pt_in_world - self.params['surf_height'])
         displace /= ca.norm_2(self.params['line_pt_on_obj'])
 
-        return misalign+displace
+        return ca.vertcat(misalign,displace)
 
 class DoublePointConstraint(Constraint):
     # a point on the rigidly held object is fixed in world coordinates
@@ -151,9 +157,9 @@ class DoublePointConstraint(Constraint):
         return (ca.fabs(ca.norm_2(self.params['pt_0']-self.params['pt_1']) -.1)   # Distance of both contact points is 10cm
         + ca.fabs(ca.norm_2(self.params['plane_normal']) - 1))              # length of norm is one
 
-    def violation(self, x):
-        x_pt_0 = (x @ ca.vertcat(self.params['pt_0'], ca.SX(1)))[:3]
-        x_pt_1 = (x @ ca.vertcat(self.params['pt_1'], ca.SX(1)))[:3]
+    def violation(self, T):
+        x_pt_0 = transform_pt(T, self.params['pt_0'])
+        x_pt_1 = transform_pt(T, self.params['pt_1'])
         # dot product of plane normal and pt_i - plane_contact = 0
         point_on_plane = self.params['d'] * self.params['plane_normal']
         loss = ca.vertcat(
@@ -179,9 +185,9 @@ class DoublePointConstraint2(Constraint):
             +  ca.fabs(ca.norm_2(self.params['plane_normal']) - 1)
         # length of norm is one
 
-    def violation(self, x):
-        x_pt_0 = (x @ ca.vertcat(self.params['pt_0'], ca.SX(1)))[:3]
-        x_pt_1 = (x @ ca.vertcat(self.params['pt_1'], ca.SX(1)))[:3]
+    def violation(self, T):
+        x_pt_0 = transform_pt(T, self.params['pt_0'])
+        x_pt_1 = transform_pt(T, self.params['pt_1'])
         plane_normal = self.params['plane_normal'] / ca.norm_2(self.params['plane_normal'])
         delta_pt0 = ca.fabs(ca.dot(x_pt_0, plane_normal) - self.params['d'])
         delta_pt1 = ca.fabs(ca.dot(x_pt_1, plane_normal) - self.params['d'])
@@ -210,21 +216,25 @@ class DoublePointConstraint3(Constraint):
             +  ca.fabs(ca.norm_2(self.params['plane_normal']) - 1)
         # length of norm is one
 
-    def violation(self, x):
-        loss =  ca.fabs(self.params['radius_0_0'] - ca.norm_2(x[0, :3] - self.params['pt_0']))
-        loss += ca.fabs(self.params['radius_1_0'] - ca.norm_2(x[1, :3] - self.params['pt_0']))
-        loss += ca.fabs(self.params['radius_2_0'] - ca.norm_2(x[2, :3] - self.params['pt_0']))
-        loss += ca.fabs(self.params['radius_3_0'] - ca.norm_2(x[3, :3] - self.params['pt_0']))
-        loss += ca.fabs(self.params['radius_0_1'] - ca.norm_2(x[0, :3] - self.params['pt_1']))
-        loss += ca.fabs(self.params['radius_1_1'] - ca.norm_2(x[1, :3] - self.params['pt_1']))
-        loss += ca.fabs(self.params['radius_2_1'] - ca.norm_2(x[2, :3] - self.params['pt_1']))
-        loss += ca.fabs(self.params['radius_3_1'] - ca.norm_2(x[3, :3] - self.params['pt_1']))
-        return ca.vertcat(loss, loss)
+    def violation(self, T):
+        # @Kevin 19.2: There's got to be a scalable way to do this... maybe a list for radius_01 or something? 
+        loss =  ca.fabs(self.params['radius_0_0'] - ca.norm_2(T[0, :3] - self.params['pt_0']))
+        loss += ca.fabs(self.params['radius_1_0'] - ca.norm_2(T[1, :3] - self.params['pt_0']))
+        loss += ca.fabs(self.params['radius_2_0'] - ca.norm_2(T[2, :3] - self.params['pt_0']))
+        loss += ca.fabs(self.params['radius_3_0'] - ca.norm_2(T[3, :3] - self.params['pt_0']))
+        loss += ca.fabs(self.params['radius_0_1'] - ca.norm_2(T[0, :3] - self.params['pt_1']))
+        loss += ca.fabs(self.params['radius_1_1'] - ca.norm_2(T[1, :3] - self.params['pt_1']))
+        loss += ca.fabs(self.params['radius_2_1'] - ca.norm_2(T[2, :3] - self.params['pt_1']))
+        loss += ca.fabs(self.params['radius_3_1'] - ca.norm_2(T[3, :3] - self.params['pt_1']))
+        return ca.vertcat(loss, loss) # @Kevin 19.2: hmm? why stack same loss?
 
 class ConstraintSet():
-    def __init__(self):
+    def __init__(self, file_path = None):
+        # IN: if file_path, will load constraint set from there
         self.constraints = {}
-
+        if file_path:
+            self.load(file_path)
+        
     def fit(self, names, constraints, datasets):
         # in: datasets is a list of clustered data, in order.
         # in: constraints is a list of constraint objects, in order.
@@ -249,62 +259,7 @@ class ConstraintSet():
 
     def id_constraint_force(self, x, f):
         # identify which constraint is most closely matching the current force
-        for constr in self.constraints:
+        for name, constr in self.constraints.items():
             sim_score = constr.get_similarity(x, f)
-        pass
-
-if __name__ == "__main__":
-    import os
-    from .dataload_helper import data
-    from .visualize import plot_x_pt_inX, plot_3d_points_segments
-
-    from .controller import Controller
-
-    cable = True
-
-    if cable:
-        for i in range(3):
-            ind = i+1
-            pts, _, _ = data(index=ind, segment=True, data_name='plug').load(pose=True, kp_delta_th=0.005)
-            print(pts[1].shape)
-            constraint = CableConstraint()
-            params = constraint.fit(pts[1], h_inf=True)
-            print(
-            f"** Ground truth **\nradius_1:\n: {0.28}\nrest_pt:\n: {np.array([-0.31187662, -0.36479221, -0.03707742])}")
-
-    else:
-        params = {'rest_pt': np.array([0,0,0]), 'pt': np.array([0.5,0.0,0.0])}
-        const = PointConstraint()
-        const.set_params(params)
-        test = np.array([0.01,1.01,0.01,0.01,-0.01,0.02])
-        print(const.jac_fn(test))
-        """
-        # Faire le testing du save
-        constraint = CableConstraint()
-        try:
-            cont = Controller(constraint)
-            cont.loop()
-        finally:
-            cont.stop()
-
-
-        names = ['cable_fixture', 'front_pivot']
-
-        constraints = [CableConstraint,
-                       CableConstraint]  # list of constraints
-        datasets = [plug(index=i+1, segment=True).load()[1] for i in range(2)]
-
-        c_set = ConstraintSet()
-
-        #c_set.fit(names=names, constraints=constraints, datasets=datasets)
-
-        path = os.getcwd() + "/contact_monitoring/data/cable_constraint.pickle"
-        #c_set.save(file_path=path)
-        c_set.load(file_path=path)
-        for i in range(2): print(c_set.constraints)
-        """
-
-
-
-
+            print(f"Sim {name} is {sim_score}")
 
