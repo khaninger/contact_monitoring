@@ -257,7 +257,7 @@ class ConstraintSet():
         save_dict = {name: self.constraints[name].save() for name in self.constraints.keys()}
         pickle.dump(save_dict, open(file_path, 'wb'))
 
-    def id_constraint_force(self, x, f):
+    def id_constraint(self, x, f):
         # identify which constraint is most closely matching the current force
         for name, constr in self.constraints.items():
             sim_score = constr.get_similarity(x, f)

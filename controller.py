@@ -1,5 +1,6 @@
 # System libraries
 import os
+import argparse
 from time import sleep
 
 # Standard libraries
@@ -20,13 +21,14 @@ from .constraint import *
 from .rotation_helpers import xyz_to_rotation
 
 class Controller():
-    def __init__(self):
+    def __init__(self, constraint_set = None):
         self.cam = None
         #self.init_camera()
         #self.init_robot(cam = self.cam)
         self.init_ros()
         self.tcp_to_obj = None # Pose of object in TCP frame
 
+        self.cset = constraint_set
         self.f_tcp = None
         self.T_tcp = np.eye(4)
 
@@ -42,7 +44,7 @@ class Controller():
                                           self.force_callback, queue_size=1)
 
     def tcp_process(self):
-        (trans,rot) = self.listener.lookupTransform('base', 'tool0', rospy.Time(0))
+        (trans,rot) = self.listener.lookupTransform('base', 'tool0_controller', rospy.Time(0))
         try:
             self.T_tcp[:3,-1] = np.array(trans)
             self.T_tcp[:3,:3] = quat_to_rotation(np.vstack((rot[3], rot[0], rot[1], rot[2])))
@@ -55,14 +57,19 @@ class Controller():
                                     msg.wrench.torque.x, msg.wrench.torque.y, msg.wrench.torque.z))
         except:
             print("Error loading ROS message in force_callback")
-        self.tcp_process()
-
+        self.detect_contact()
+        
     def shutdown(self):
         #TODO add sending all zeros on the TCP cmd interface
         print("Shutting down controller")
 
-    def loop(self):
-        sim = self.constraint.get_similarity(self.T_tcp, self.f_tcp)
+    def detect_contact(self):
+        self.tcp_process()
+        if not self.cset:
+            print("No cset object, skipping similarity eval")
+            return
+        
+        sim = self.cset.id_constraint(self.T_tcp, self.f_tcp)
         print(f'similarity: {sim}')
 
     def def_grip2object_pose(self, set=True):
@@ -88,16 +95,21 @@ class Controller():
             dictionary = plug().load_data(path=os.getcwd() + "/data/" + "plug_constraint_0.pickle")
             self.T_kp2tcp = dictionary['T']
 
-    def T_conpose2base(self, T_tcp2base):
+    def T_compose2base(self, T_tcp2base):
         return T_tcp2base@self.T_kp2tcp
 
-def start_node():
+def start_node(constraint_set):
     rospy.init_node('contact_observer')
-    controller = Controller()
+    controller = Controller(constraint_set = constraint_set)
     rospy.on_shutdown(controller.shutdown)
     rospy.spin()
-    
+
 if __name__ == '__main__':
-    start_node()
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--cset", default="", help="path to saved constraint set")
+    args = parser.parse_args()
+
+    cset = ConstraintSet(file_path = args.cset) if args.cset else None
+    start_node(constraint_set = cset)
 
     
