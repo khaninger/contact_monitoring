@@ -31,13 +31,13 @@ class data():
                     n_discard = 0
                     kp_dim = 3
                     init_kp = dataset[init_kp_index,:,:kp_dim]
-                    T_init = kp2pose.init_T(init_kp)
+                    T_init = init_T(init_kp)
                     __dataset = []
                     __dataset_segments = []
                     __dataset_time = []
                     for i in range(dataset.shape[0]):
                         data_kp = dataset[i,:,:kp_dim]
-                        T_rake, delta = kp2pose.find_T(init_kp, data_kp, kp_delta_th=kp_delta_th)
+                        T_rake, delta = find_T(init_kp, data_kp, kp_delta_th=kp_delta_th)
                         if not delta: # only append poses wher kp2kp transform results in per keypoint offset smaller than kp_delta_th
                             if pose:
                                 __dataset.append(T_rake @ T_init)
