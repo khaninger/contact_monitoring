@@ -34,17 +34,21 @@ class Constraint():
             loss += ca.norm_2(self.violation(data_pt))
         loss += data.shape[0]*self.regularization()
 
+
         if h_inf:  # add a slack variable which will bound the violation, and be minimized
-            self.params['slack'] = DecisionVar(x0 = [0.5], lb = [0.0], ub = [0.1])
+            self.params['slack'] = DecisionVar(x0 = [0.1], lb = [0.0], ub = [0.1])
             loss += data.shape[0]*self.params['slack']
             ineq_constraints = [ca.fabs(self.violation(d))-self.params['slack'] for d in data]
 
+        print("DEBUG LOSS")
+        print(loss.shape)
         # get dec vars; x is symbolic decision vector of all params, lbx/ubx lower/upper bounds
         x, lbx, ubx = self.params.get_dec_vectors()
         x0 = self.params.get_x0()
         args = dict(x0=x0, lbx=lbx, ubx=ubx, p=None, lbg=-np.inf, ubg=np.zeros(len(ineq_constraints)))
+
         prob = dict(f=loss, x=x, g=ca.vertcat(*ineq_constraints))
-        solver = ca.nlpsol('solver', 'ipopt', prob, {'ipopt.print_level':0})
+        solver = ca.nlpsol('solver', 'ipopt', prob, {'ipopt.print_level':2})
 
         # solve, print and return
         sol = solver(x0 = x0, lbx = lbx, ubx = ubx)
@@ -120,8 +124,6 @@ class CableConstraint(Constraint):
         x = self.tmat_to_pose(T)
         return self.params['radius_1'] - ca.norm_2(x - self.params['rest_pt'])
 
-    def violation2(self, x):
-        return self.params['radius_1'] - ca.exp(1+10*ca.norm_2(x - self.params['rest_pt']))
 
 class LineOnSurfaceConstraint(Constraint):
     # A line on the object is flush on a surface, but is free to rotate about that surface
@@ -282,3 +284,12 @@ class ConstraintSet():
         #print(f"jac: {self.jac}")
         #print(f"jac: {constr.jac_fn(x[:3,-1])}")
 
+if __name__ == "__main__":
+    from .dataload_helper import *
+
+    constraint = CableConstraint()
+    for i in range(3):
+        #dataset, _, _ = data(index=i+1, segment=True, data_name="plug_threading").load(pose=True, kp_delta_th=0.005)
+        dataset, _, _ = data(index=i+1, segment=True, data_name="plug").load(pose=True, kp_delta_th=0.005)
+        constraint.fit(data=dataset[1], h_inf=True)
+        #constraint.fit(data=dataset[2], h_inf=True)
