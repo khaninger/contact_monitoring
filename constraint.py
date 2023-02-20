@@ -1,9 +1,11 @@
+from collections import deque
 import casadi as ca
 import numpy as np
 import pickle
 
 from .decision_vars import DecisionVar, DecisionVarSet
 from .rotation_helpers import *
+
 
 class Constraint():
     def __init__(self, params_init):
@@ -236,6 +238,8 @@ class ConstraintSet():
         self.constraints = {}
         self.sim_score = {}
         self.jac = {}
+        self.force_buffer = deque(maxlen=8)
+
 
         if file_path:
             self.load(file_path)
@@ -264,12 +268,17 @@ class ConstraintSet():
         pickle.dump(save_dict, open(file_path, 'wb'))
 
     def id_constraint(self, x, f):
+
         # identify which constraint is most closely matching the current force
+        threshold = 6
+        self.force_buffer.append(np.linalg.norm(f))
         for name, constr in self.constraints.items():
             self.sim_score[name] = constr.get_similarity(x, f)
             self.jac[name] = constr.jac_fn(x[:3,-1])
-
-        print(f"Sim score: {self.sim_score}")
+        if any(it<threshold for it in self.force_buffer):
+            print("Free-space")
+        else:
+            print(f"Sim score: {self.sim_score}")
         #print(f"jac: {self.jac}")
         #print(f"jac: {constr.jac_fn(x[:3,-1])}")
 
