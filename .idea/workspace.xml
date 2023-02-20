@@ -6,6 +6,8 @@
   <component name="ChangeListManager">
     <list default="true" id="4996e4d5-555e-4ec5-a3d4-2a95c4043bd5" name="Changes" comment="Ad visualize.py">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/constraint.py" beforeDir="false" afterPath="$PROJECT_DIR$/constraint.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/controller.py" beforeDir="false" afterPath="$PROJECT_DIR$/controller.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -34,7 +36,7 @@
   "keyToString": {
     "RunOnceActivity.OpenProjectViewOnStart": "true",
     "RunOnceActivity.ShowReadmeOnStart": "true",
-    "last_opened_file_path": "/home/ipk410/hegechri/Thesis",
+    "last_opened_file_path": "/home/ipk410/converging/contact_monitoring",
     "settings.editor.selected.configurable": "PyConsoleConfigurable.Python Console"
   }
 }]]></component>
