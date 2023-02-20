@@ -56,8 +56,9 @@ class Constraint():
 
     """
     def get_jac(self): # construct the jacobian and pinv
-        x_tcp_sym = ca.SX.sym("x_sym",3+3*(not self.linear))
-        T_tcp_sym = self.pose_to_tmat(x_sym)
+        x_tcp_sym = ca.SX.sym("x_tcp_sym",3+3*(not self.linear))
+        T_tcp_sym = self.pose_to_tmat(x_tcp_sym)
+        T_obj_sym = T_tcp_sym
         #T_obj_sym = (Transformation tcp to object)@T_tcp_sym
         h = self.violation(T_obj_sym)
         self.jac = ca.jacobian(h, x_tcp_sym)
@@ -238,6 +239,9 @@ class ConstraintSet():
     def __init__(self, file_path = None):
         # IN: if file_path, will load constraint set from there
         self.constraints = {}
+        self.sim_score = {}
+        self.jac = {}
+
         if file_path:
             self.load(file_path)
         
@@ -252,6 +256,7 @@ class ConstraintSet():
     def load(self, file_path): # load fit params, and create the set of constraints
         save_dict = pickle.load(open(file_path, 'rb'))# load pickle file
         for name in save_dict.keys():
+            print(f"loading constraint: {name}")
             # first element in tuple in save_dict[name] is the type, 2nd is the params
             # we are calling the type to construct the object, with argument of the params
             const = save_dict[name][0]()
@@ -266,8 +271,12 @@ class ConstraintSet():
     def id_constraint(self, x, f):
         # identify which constraint is most closely matching the current force
         for name, constr in self.constraints.items():
-            sim_score = constr.get_similarity(x, f)
-            print(f"Sim {name} is {sim_score}")
+            self.sim_score[name] = constr.get_similarity(x, f)
+            self.jac[name] = constr.jac_fn(x[:3,-1])
+
+        print(f"Sim score: {self.sim_score}")
+        #print(f"jac: {self.jac}")
+        #print(f"jac: {constr.jac_fn(x[:3,-1])}")
 
 if __name__ == "__main__":
     from .visualize import *
