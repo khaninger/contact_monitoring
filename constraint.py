@@ -33,7 +33,7 @@ class Constraint():
         loss += data.shape[0]*self.regularization()
 
         if h_inf:  # add a slack variable which will bound the violation, and be minimized
-            self.params['slack'] = DecisionVar(x0 = [0.5], lb = [0.0], ub = [0.1])
+            self.params['slack'] = DecisionVar(x0 = [0.1], lb = [0.0], ub = [0.1])
             loss += data.shape[0]*self.params['slack']
             ineq_constraints = [ca.fabs(self.violation(d))-self.params['slack'] for d in data]
 
@@ -47,13 +47,14 @@ class Constraint():
         # solve, print and return
         sol = solver(x0 = x0, lbx = lbx, ubx = ubx)
         self.params.set_results(sol['x'])
-        self.get_jac()
+        #self.get_jac()
         print(f"Optimized params: \n {self.params}")
         return self.params
 
     def violation(self, T): # constraint violation for a transformation matrix T
         raise NotImplementedError
-        
+
+    """
     def get_jac(self): # construct the jacobian and pinv
         x_tcp_sym = ca.SX.sym("x_sym",3+3*(not self.linear))
         T_tcp_sym = self.pose_to_tmat(x_sym)
@@ -63,6 +64,7 @@ class Constraint():
         self.jac_fn = ca.Function('jac_fn', [x_tcp_sym], [self.jac])
         self.jac_pinv = ca.pinv(self.jac)
         self.jac_pinv_fn = ca.Function('jac_pinv_fn', [x_tcp_sym], [self.jac_pinv])
+    """
 
     def get_similarity(self, T, f):
         # IN: T is a transformation matrix for pose
@@ -147,10 +149,10 @@ class LineOnSurfaceConstraint(Constraint):
 class DoublePointConstraint(Constraint):
     # a point on the rigidly held object is fixed in world coordinates
     def __init__(self):
-        params_init = {'pt_0': np.array([0.05,0,0]),  # first contact point in the object frame, which changes wrt 'x'
-                       'pt_1': np.array([-0.05,0,0]),  # second contact point in the object frame, which changes wrt 'x'
-                       'plane_normal': np.array([1,0,0]),
-                       'd': np.array([.1])}  # resting position of the point contact in world coordinates
+        params_init = {'pt_0': np.array([0.05, 0, 0]),  # first contact point in the object frame, which changes wrt 'x'
+                       'pt_1': np.array([-0.05, 0, 0]),  # second contact point in the object frame, which changes wrt 'x'
+                       'plane_normal': np.array([1, 0, 0]),
+                       'd': np.array([.1])}  # resting position of the plabe contact in world coordinates
 
         Constraint.__init__(self, params_init)
 
@@ -187,8 +189,11 @@ class DoublePointConstraint2(Constraint):
         # length of norm is one
 
     def violation(self, T):
-        x_pt_0 = transform_pt(T, self.params['pt_0'])
-        x_pt_1 = transform_pt(T, self.params['pt_1'])
+        #x_pt_0 = transform_pt(invert_TransMat(T), self.params['pt_0'])
+        #x_pt_1 = transform_pt(invert_TransMat(T), self.params['pt_1'])
+        #x_pt_0 = transform_pt(T, self.params['pt_0'])
+        #x_pt_1 = transform_pt(T, self.params['pt_1'])
+
         plane_normal = self.params['plane_normal'] / ca.norm_2(self.params['plane_normal'])
         delta_pt0 = ca.fabs(ca.dot(x_pt_0, plane_normal) - self.params['d'])
         delta_pt1 = ca.fabs(ca.dot(x_pt_1, plane_normal) - self.params['d'])
@@ -264,3 +269,18 @@ class ConstraintSet():
             sim_score = constr.get_similarity(x, f)
             print(f"Sim {name} is {sim_score}")
 
+if __name__ == "__main__":
+    from .visualize import *
+    from .dataload_helper import *
+
+    dataset, segments, time = \
+        data(index=1, segment=True, data_name="rake").load(pose=True, kp_delta_th=0.005)
+
+    data = dataset[1]
+    print("Example pose")
+    print(data[0,:,:])
+    const = DoublePointConstraint2()
+    params = const.fit(data=data, h_inf=True)
+
+    #plot_x_pt_inX(L_pt=[params['pt_0'],params['pt_1']], X=data, plane=[params['plane_normal'],params['d']])
+    plot_x_pt_inX(L_pt=[params['pt_0'],params['pt_1']], X=data, plane=None)
