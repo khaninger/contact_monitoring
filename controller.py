@@ -46,6 +46,7 @@ class Controller():
     def tcp_process(self):
         (trans,rot) = self.listener.lookupTransform('base', 'tool0_controller', rospy.Time(0))
         try:
+            #print(trans)
             self.T_tcp[:3,-1] = np.array(trans)
             self.T_tcp[:3,:3] = quat_to_rotation(np.vstack((rot[3], rot[0], rot[1], rot[2])))
         except:
@@ -68,9 +69,9 @@ class Controller():
         if not self.cset:
             print("No cset object, skipping similarity eval")
             return
-        
+
         sim = self.cset.id_constraint(self.T_tcp, self.f_tcp)
-        print(f'similarity: {sim}')
+
 
     def def_grip2object_pose(self, set=True):
         if set:
@@ -106,10 +107,9 @@ def start_node(constraint_set):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument("--cset", default="", help="path to saved constraint set")
+    parser.add_argument("--cset", default="contact_monitoring/data/cable_constraint.pickle", help="path to saved constraint set")
     args = parser.parse_args()
 
     cset = ConstraintSet(file_path = args.cset) if args.cset else None
     start_node(constraint_set = cset)
-
     
