@@ -55,13 +55,14 @@ class Constraint():
         raise NotImplementedError
         
     def get_jac(self): # construct the jacobian and pinv
-        x_sym = ca.SX.sym("x_sym",3+3*(not self.linear))
-        T_sym = self.pose_to_tmat(x_sym)
-        h = self.violation(T_sym)
-        self.jac = ca.jacobian(h, x_sym)
-        self.jac_fn = ca.Function('jac_fn', [x_sym], [self.jac])
+        x_tcp_sym = ca.SX.sym("x_sym",3+3*(not self.linear))
+        T_tcp_sym = self.pose_to_tmat(x_sym)
+        #T_obj_sym = (Transformation tcp to object)@T_tcp_sym
+        h = self.violation(T_obj_sym)
+        self.jac = ca.jacobian(h, x_tcp_sym)
+        self.jac_fn = ca.Function('jac_fn', [x_tcp_sym], [self.jac])
         self.jac_pinv = ca.pinv(self.jac)
-        self.jac_pinv_fn = ca.Function('jac_pinv_fn', [x_sym], [self.jac_pinv])
+        self.jac_pinv_fn = ca.Function('jac_pinv_fn', [x_tcp_sym], [self.jac_pinv])
 
     def get_similarity(self, T, f):
         # IN: T is a transformation matrix for pose
