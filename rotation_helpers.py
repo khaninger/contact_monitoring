@@ -6,6 +6,11 @@ def cross(a,b):
                       a[2]*b[0]-a[0]*b[2],
                       a[0]*b[1]-a[1]*b[0])
 
+def transform_pt(T, x):
+    if type(T) is np.ndarray:
+        T = ca.DM(T)
+    return (T @ ca.vertcat(x, ca.SX(1)))[:3]
+
 #### Rotation vectors ####
 def rotvec_to_rotation(vec):
     ty = ca.SX if type(vec) is ca.SX else ca.DM
@@ -55,7 +60,19 @@ def rotation_to_rotvec(R):
                               r/ca.sqrt((3-tr)*(1+tr))))
 
     return r*theta
-    
+
+def tmat_to_rotvec_pose(T):
+    pos = T[:3,-1]
+    rot = T[:3,:3]
+    rot_vec = rotation_to_rotvec(rot)
+    return ca.vertcat(pos,rot_vec)
+
+def rotvec_pose_to_tmat(r):
+    R_sym = rotvec_to_rotation(r[3:])
+    rot = ca.vertcat(R_sym, ca.SX(1,3))
+    pos = ca.vertcat(r[:3], ca.SX(1))
+    return ca.horzcat(rot,pos)  # simbolic transformation matrix
+
 def rotvec_to_quat(r):
     norm_r = ca.norm_2(r)
     th_2 = norm_r/2.0
