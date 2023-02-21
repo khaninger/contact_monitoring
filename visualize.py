@@ -73,6 +73,22 @@ def plot_3d_points_segments(L, rest_pt=np.array([-0.31187662, -0.36479221, -0.03
     ax.legend()
     plt.show()
 
+def plot_T_traj(T_list):
+    # IN: T_list is an iterable of transformation matrices representing object pose
+    fig = plt.figure(figsize=(14, 10), dpi=80)
+    ax = fig.add_subplot(111, projection='3d')
+    #ax.plot_wireframe(x, y, z, color='black', linewidth=0.5)
+    sc = 0.02
+    for T in T_list:
+        x = T[:3,-1]
+        rot = T[:3,:3]
+        ax.plot([x[0], x[0] + sc * rot[0, 0]], [x[1], x[1] + sc * rot[1, 0]], [x[2], x[2] + sc * rot[2, 0]], 'r')
+        ax.plot([x[0], x[0] + sc * rot[0, 1]], [x[1], x[1] + sc * rot[1, 1]], [x[2], x[2] + sc * rot[2, 1]], 'g')
+        ax.plot([x[0], x[0] + sc * rot[0, 2]], [x[1], x[1] + sc * rot[1, 2]], [x[2], x[2] + sc * rot[2, 2]], 'b')
+
+    set_axes_equal(ax)
+    plt.show()
+
 def plot_x_pt_inX(L_pt, X=None, plane=None):
     colors = ['b', 'g', 'm', 'y']
     labels = ['pt_0', 'pt_1', 'pt_2']
@@ -122,9 +138,10 @@ def plot_distance(L,rest_pt):
 
 
 if __name__ == "__main__":
-    from dataload_helper import plug, rake
+    from .dataload_helper import *
     show_plug = False
     show_rake = False
+    show_rake_pose = True
     if show_plug:
 
         for i in range(3):
@@ -144,9 +161,12 @@ if __name__ == "__main__":
             dataset = rake(index=i+1, clustered=False, segment=True).load(center=True)
             plot_3d_points_segments(dataset, [0,0,0], i+1)
 
+    if show_rake_pose:
+        pts, _, _ = data(index=1, segment=True, data_name='rake').load(pose=True, kp_delta_th=0.005)
+        plot_T_traj(pts[1])
 
-if __name__ == "__main__":
-    from dataload_helper import point_c_data
+#if __name__ == "__main__":
+#    from .dataload_helper import point_c_data
 
-    pts = point_c_data(n_points=3, noise=0.01).points()
-    plot_3d_points(L=pts, rest_pt = np.array([0.1, 0.2, 0.3]))
+#    pts = point_c_data(n_points=3, noise=0.01).points()
+#    plot_3d_points(L=pts, rest_pt = np.array([0.1, 0.2, 0.3]))
