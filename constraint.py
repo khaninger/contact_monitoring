@@ -235,7 +235,7 @@ class ConstraintSet():
         # IN: if file_path, will load constraint set from there
         self.constraints = {}
         self.sim_score = {}
-        self.jac = {}
+        #self.jac = {}
 
         if file_path:
             self.load(file_path)
@@ -265,11 +265,14 @@ class ConstraintSet():
 
     def id_constraint(self, x, f):
         # identify which constraint is most closely matching the current force
+        threshold =  # to be defined
         for name, constr in self.constraints.items():
             self.sim_score[name] = constr.get_similarity(x, f)
-            self.jac[name] = constr.jac_fn(x[:3,-1])
+            #self.jac[name] = constr.jac_fn(x[:3,-1])
 
-        print(f"Sim score: {self.sim_score}")
-        #print(f"jac: {self.jac}")
-        #print(f"jac: {constr.jac_fn(x[:3,-1])}")
+        if np.linalg.norm(f)< threshold:
+            print('free-space')
+        else:
+            print(f"Sim score: {self.sim_score}")
+            #print(f"jac: {self.jac}")
 
