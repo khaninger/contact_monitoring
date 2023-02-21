@@ -19,7 +19,6 @@ class data():
 
     def load(self, pose=True, kp_delta_th=0.005):
         if os.path.isfile(self.path):
-
             dataset = np.array(pickle.load(open(self.path, "rb")))
             n_dataset = len(dataset)
             print(f"\nLoaded {n_dataset} samples from {self.path} dataset {self.index}")
@@ -82,7 +81,7 @@ class data():
                         else: dataset_segmented.append(dataset[dataset_segments == segment, :, :3])
                     else:
                         if pose: dataset_segmented.append(dataset[dataset_segments == segment, :, :3])
-                        else: dataset_segments.append(dataset[dataset[:, -1] == segment, :3])
+                        else: dataset_segmented.append(dataset[dataset[:, -1] == segment, :3])
                 print(
                     f"Dataset contains {len(dataset_segmented)} segments:")
                 try:
