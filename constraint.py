@@ -287,9 +287,11 @@ class ConstraintSet():
 if __name__ == "__main__":
     from .dataload_helper import *
 
-    constraint = CableConstraint()
+    #constraint = CableConstraint()
+    constraint = DoublePointConstraint()
     for i in range(3):
         #dataset, _, _ = data(index=i+1, segment=True, data_name="plug_threading").load(pose=True, kp_delta_th=0.005)
-        dataset, _, _ = data(index=i+1, segment=True, data_name="plug").load(pose=True, kp_delta_th=0.005)
+        dataset, _, _ = data(index=i+1, segment=True, data_name="rake").load(pose=True, kp_delta_th=0.005)
+        print(dataset[1].shape)
         constraint.fit(data=dataset[1], h_inf=True)
         #constraint.fit(data=dataset[2], h_inf=True)
