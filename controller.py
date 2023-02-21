@@ -6,15 +6,9 @@ from time import sleep
 # Standard libraries
 import numpy as np
 import pickle
-#from urx import Robot
 import rospy
-from geometry_msgs.msg import WrenchStamped
+from geometry_msgs.msg import WrenchStamped, Twist
 import tf
-
-# Local project files
-#from camera import cvf, camera2, helper_functions
-#from camera.skripts import main
-#from camera.robot2 import Robot
 from . import kp2pose
 
 from .constraint import *
@@ -40,8 +34,6 @@ class Controller():
 
     def objectpose_process(self):
         self.T_tcp2base = self.T_tcp
-
-
         self.T_object2base = self.T_tcp2base @ self.T_object2tcp
 
 
@@ -55,6 +47,7 @@ class Controller():
         self.listener = tf.TransformListener()
         self.force_sub = rospy.Subscriber('wrench', WrenchStamped,
                                           self.force_callback, queue_size=1)
+        self.vel_pub = rospy.Publisher('vel_cmd', Twist, queue_size=1)
 
     def tcp_process(self):
         (trans,rot) = self.listener.lookupTransform('base', 'tool0_controller', rospy.Time(0))
@@ -72,9 +65,34 @@ class Controller():
         except:
             print("Error loading ROS message in force_callback")
         self.detect_contact()
-        
+        self.control()
+
+    def control(self):
+        # TODO do some control...
+          # add a goal pose to constraintSet?
+          # do something clever with the constraint jacobians?
+
+
+        vel_cmd = np.zeros(6)
+        msg = Twist()
+        msg.header.stamp = rospy.Time.now()
+        msg.linear.x = vel_cmd[0]
+        msg.linear.y = vel_cmd[1]
+        msg.linear.z = vel_cmd[2]
+        msg.angular.x = vel_cmd[3]
+        msg.angular.y = vel_cmd[4]
+        msg.angular.z = vel_cmd[5]
+
+        # TODO limit the speed of the velocity commands
+
+        if not (rospy.is_shutdown()): #TODO &&  CHECK THAT VEL CTRL IS RUNNING)
+            self.vel_pub.publish(msg)
+
     def shutdown(self):
         #TODO add sending all zeros on the TCP cmd interface
+        vel_cmd = build_twist_msg(np.zeros(6))
+        if not (rospy.is_shutdown()): #TODO &&  CHECK THAT VEL CTRL IS RUNNING)
+            self.vel_pub.publish(msg)
         print("Shutting down controller")
 
     def detect_contact(self):
