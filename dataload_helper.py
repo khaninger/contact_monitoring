@@ -81,7 +81,7 @@ class data():
                         else: dataset_segmented.append(dataset[dataset_segments == segment, :, :3])
                     else:
                         if pose: dataset_segmented.append(dataset[dataset_segments == segment, :, :3])
-                        else: dataset_segments.append(dataset[dataset[:, -1] == segment, :3])
+                        else: dataset_segmented.append(dataset[dataset[:, -1] == segment, :3])
                 print(
                     f"Dataset contains {len(dataset_segmented)} segments:")
                 try:

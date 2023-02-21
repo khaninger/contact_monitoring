@@ -1,9 +1,11 @@
+from collections import deque
 import casadi as ca
 import numpy as np
 import pickle
 
 from .decision_vars import DecisionVar, DecisionVarSet
 from .rotation_helpers import *
+
 
 class Constraint():
     def __init__(self, params_init):
@@ -19,7 +21,7 @@ class Constraint():
         self.params = params_init
         self.get_jac()
 
-    def fit(self, data, h_inf = True, print_ipopt = False):
+    def fit(self, data, h_inf = True):
         # IN: data is the trajectory that we measure from the demonstration
         # IN: h_inf activates the hinf penalty and inequality constraints in the optimization problem
         print(f"Fitting {str(type(self))} \n-> with following params:")
@@ -32,6 +34,7 @@ class Constraint():
             loss += ca.norm_2(self.violation(data_pt))
         loss += data.shape[0]*self.regularization()
 
+
         if h_inf:  # add a slack variable which will bound the violation, and be minimized
             self.params['slack'] = DecisionVar(x0 = [0.1], lb = [0.0], ub = [0.1])
             loss += data.shape[0]*self.params['slack']
@@ -41,8 +44,9 @@ class Constraint():
         x, lbx, ubx = self.params.get_dec_vectors()
         x0 = self.params.get_x0()
         args = dict(x0=x0, lbx=lbx, ubx=ubx, p=None, lbg=-np.inf, ubg=np.zeros(len(ineq_constraints)))
+
         prob = dict(f=loss, x=x, g=ca.vertcat(*ineq_constraints))
-        solver = ca.nlpsol('solver', 'ipopt', prob, {'ipopt.print_level':5*print_ipopt})
+        solver = ca.nlpsol('solver', 'ipopt', prob, {'ipopt.print_level':2})
 
         # solve, print and return
         sol = solver(x0 = x0, lbx = lbx, ubx = ubx)
@@ -120,8 +124,6 @@ class CableConstraint(Constraint):
         x = self.tmat_to_pose(T)
         return self.params['radius_1'] - ca.norm_2(x - self.params['rest_pt'])
 
-    def violation2(self, x):
-        return self.params['radius_1'] - ca.exp(1+10*ca.norm_2(x - self.params['rest_pt']))
 
 class LineOnSurfaceConstraint(Constraint):
     # A line on the object is flush on a surface, but is free to rotate about that surface
@@ -150,10 +152,10 @@ class LineOnSurfaceConstraint(Constraint):
 class DoublePointConstraint(Constraint):
     # a point on the rigidly held object is fixed in world coordinates
     def __init__(self):
-        params_init = {'pt_0': np.array([0.05, 0, 0]),  # first contact point in the object frame, which changes wrt 'x'
-                       'pt_1': np.array([-0.05, 0, 0]),  # second contact point in the object frame, which changes wrt 'x'
-                       'plane_normal': np.array([1, 0, 0]),
-                       'd': np.array([.1])}  # resting position of the plabe contact in world coordinates
+        params_init = {'pt_0': np.array([0.05,0,0]),  # first contact point in the object frame, which changes wrt 'x'
+                       'pt_1': np.array([-0.05,0,0]),  # second contact point in the object frame, which changes wrt 'x'
+                       'plane_normal': np.array([1,0,0]),
+                       'd': np.array([.1])}  # resting position of the point contact in world coordinates
 
         Constraint.__init__(self, params_init)
 
@@ -176,28 +178,26 @@ class DoublePointConstraint(Constraint):
 class DoublePointConstraint2(Constraint):
     # a point on the rigidly held object is fixed in world coordinates
     def __init__(self):
-        params_init = {'pt_0': np.array([0.05, 0.05, 0]),  # first contact point in the object frame, which changes wrt 'x'
-                       'pt_1': np.array([-0.05, 0.05, 0]),
+        params_init = {'pt_0': np.array([0.05, 0, 0]),  # first contact point in the object frame, which changes wrt 'x'
+                       'pt_1': np.array([-0.05, 0, 0]),
                        # second contact point in the object frame, which changes wrt 'x'
-                       'plane_normal': np.array([0, 0.7, 0.7]),
+                       'plane_normal': np.array([1, 0, 0]),
                        'd': np.array([1])}  # resting position of the point contact in world coordinates
 
         Constraint.__init__(self, params_init)
 
     def regularization(self):
-        return ca.fabs(ca.norm_2(self.params['pt_0'] - self.params['pt_1']) - .40)\
-               + ca.fabs(ca.norm_2(self.params['plane_normal']) - 1) # length of norm is one
+        return ca.fabs(ca.norm_2(self.params['pt_0'] - self.params['pt_1']) - .20)\
+            +  ca.fabs(ca.norm_2(self.params['plane_normal']) - 1)
+        # length of norm is one
 
     def violation(self, T):
         x_pt_0 = transform_pt(T, self.params['pt_0'])
         x_pt_1 = transform_pt(T, self.params['pt_1'])
-
         plane_normal = self.params['plane_normal'] / ca.norm_2(self.params['plane_normal'])
-        delta_pt0 = (ca.dot(x_pt_0, plane_normal) - self.params['d'])
-        delta_pt1 = (ca.dot(x_pt_1, plane_normal) - self.params['d'])
+        delta_pt0 = ca.fabs(ca.dot(x_pt_0, plane_normal) - self.params['d'])
+        delta_pt1 = ca.fabs(ca.dot(x_pt_1, plane_normal) - self.params['d'])
         return ca.vertcat(delta_pt0, delta_pt1)
-
-
 
 class DoublePointConstraint3(Constraint):
     # a point on the rigidly held object is fixed in world coordinates
@@ -226,6 +226,8 @@ class ConstraintSet():
         self.constraints = {}
         self.sim_score = {}
         self.jac = {}
+        self.force_buffer = deque(maxlen=8)
+
 
         if file_path:
             self.load(file_path)
@@ -254,44 +256,17 @@ class ConstraintSet():
         pickle.dump(save_dict, open(file_path, 'wb'))
 
     def id_constraint(self, x, f):
+
         # identify which constraint is most closely matching the current force
+        threshold = 6
+        self.force_buffer.append(np.linalg.norm(f))
         for name, constr in self.constraints.items():
             self.sim_score[name] = constr.get_similarity(x, f)
             self.jac[name] = constr.jac_fn(x[:3,-1])
-
-        print(f"Sim score: {self.sim_score}")
+        if any(it<threshold for it in self.force_buffer):
+            print("Free-space")
+        else:
+            print(f"Sim score: {self.sim_score}")
         #print(f"jac: {self.jac}")
         #print(f"jac: {constr.jac_fn(x[:3,-1])}")
 
-if __name__ == "__main__":
-    from .visualize import *
-    from .dataload_helper import *
-
-    dataset, segments, time = data(index=3, segment=True, data_name="plug_threading").load(pose=True, kp_delta_th=0.005)
-
-
-    _data = dataset[2]
-
-    const = CableConstraint()
-    params = const.fit(data=_data, h_inf=True, print_ipopt=True)
-
-
-
-
-    #const = DoublePointConstraint2()
-    #params = const.fit(data=_data, h_inf=True, print_ipopt=True)
-
-    #plot_x_pt_inX(L_pt=[params['pt_0'],params['pt_1']], X=_data, plane=[params['plane_normal'],params['d']])
-    #plot_x_pt_inX(L_pt=[params['pt_0'],params['pt_1']], X=_data, plane=None)
-
-
-
-    #plot single point
-    #plot_x_pt_inX(L_pt=[params['pt_0']], X=_data, plane=[params['plane_normal'],params['d']])
-    #plot_x_pt_inX(L_pt=[params['pt_0']], X=_data, plane=None)
-
-    # Plot only keypoint traj
-    #dataset, segments, time = \
-    #    data(index=1, segment=True, data_name="sexy_rake").load(pose=False, kp_delta_th=0.005)
-    #_data = dataset[0]
-    #plot_x_pt_inX(L_pt=_data, plane=[[0,0,1], -.04])
