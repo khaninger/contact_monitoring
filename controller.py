@@ -18,7 +18,7 @@ import tf
 from . import kp2pose
 
 from .constraint import *
-from .rotation_helpers import xyz_to_rotation
+from .rotation_helpers import xyz_to_rotation, invert_TransMat
 
 class Controller():
     def __init__(self, constraint_set = None):
@@ -39,8 +39,10 @@ class Controller():
         time.sleep(5)
 
     def objectpose_process(self):
-        T_tcp2base = self.T_tcp
-        self.T_object2base = T_tcp2base @ self.T_object2tcp
+        self.T_tcp2base = self.T_tcp
+
+
+        self.T_object2base = self.T_tcp2base @ self.T_object2tcp
 
 
     def init_camera(self):
@@ -78,11 +80,25 @@ class Controller():
     def detect_contact(self):
         self.tcp_process()
         self.objectpose_process()
+        # The transformation of force frame is from the MS Thesis of Bo Ho
+        # SIX-DEGREE-OF-FREEDOM ACTIVE REAL-TIME FORCE CONTROL OF MANIPULATOR, pg. 63
+        self.R_object2tcp = self.T_object2tcp[:3, :3]
+        self.R_tcp2object = self.R_object2tcp.T
+        self.pos_tcp2base = self.T_tcp2base[:3,-1]
+        self.pos_object2base = self.T_object2base[:3,-1]
+        self.T_tcp2object = invert_TransMat(self.T_object2tcp)
+        self.pos_tcp2object = self.T_tcp2object[:3,-1]
+        self.cross_product = np.array([[0,-self.pos_tcp2object[-1],self.pos_tcp2object[1]],
+                                       [self.pos_tcp2object[-1],0,-self.pos_tcp2object[0]],
+                                       [-self.pos_tcp2object[1],self.pos_tcp2object[0],0]])
+        self.T_wrench_tcp2object = np.hstack([np.vstack([self.R_tcp2object,self.cross_product@self.R_tcp2object]),np.vstack([np.zeros((3,3)),self.R_tcp2object])])
+        self.f_object = self.T_wrench_tcp2object @ self.f_tcp
+
         if not self.cset:
             print("No cset object, skipping similarity eval")
             return
 
-        sim = self.cset.id_constraint(self.T_tcp, self.f_tcp)
+        sim = self.cset.id_constraint(self.T_object2base, self.f_object)
 
 
 def start_node(constraint_set):

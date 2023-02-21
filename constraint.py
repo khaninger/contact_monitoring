@@ -118,7 +118,7 @@ class CableConstraint(Constraint):
         self.linear = True  # flag variable to switch between full jacobian and linear one
 
     def regularization(self):
-        return 0.001 * self.params['radius_1']
+        return 0.0001 * self.params['radius_1']
 
     def violation(self, T):
         x = self.tmat_to_pose(T)
@@ -286,9 +286,27 @@ class ConstraintSet():
 
 if __name__ == "__main__":
     from .dataload_helper import *
-
+    #plug_threading
     constraint = CableConstraint()
-    for i in range(3):
-        dataset, segments, time = data(index=i+1, segment=True, data_name="plug_threading").load(pose=True, kp_delta_th=0.005)
-        constr = CableConstraint()
-        constr.fit(dataset[1], h_inf=True)
+
+    #load threading data
+    dataset, segments, time = data(index=1, segment=True, data_name="plug_threading").load(pose=True, kp_delta_th=0.005)
+    cable_fixture = dataset[1]
+    dataset, segments, time = data(index=1, segment=True, data_name="plug_threading").load(pose=True, kp_delta_th=0.005)
+    front_pivot = dataset[2]
+
+
+    names = ['cable_fixture', 'front_pivot']
+
+    constraints = [CableConstraint,
+                   CableConstraint]
+
+    datasets = [cable_fixture, front_pivot]
+
+    c_set = ConstraintSet()
+    c_set.fit(names=names, constraints=constraints, datasets=datasets)
+
+    path = os.getcwd() + "/contact_monitoring/data/cable_constraint.pickle"
+    c_set.save(file_path=path)
+    c_set.load(file_path=path)
+    print(c_set.constraints)
