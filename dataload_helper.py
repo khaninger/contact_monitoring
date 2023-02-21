@@ -19,7 +19,6 @@ class data():
 
     def load(self, pose=True, kp_delta_th=0.005):
         if os.path.isfile(self.path):
-
             dataset = np.array(pickle.load(open(self.path, "rb")))
             n_dataset = len(dataset)
             print(f"\nLoaded {n_dataset} samples from {self.path} dataset {self.index}")

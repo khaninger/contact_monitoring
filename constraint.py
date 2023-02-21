@@ -19,7 +19,7 @@ class Constraint():
         self.params = params_init
         self.get_jac()
 
-    def fit(self, data, h_inf = True):
+    def fit(self, data, h_inf = True, print_ipopt = False):
         # IN: data is the trajectory that we measure from the demonstration
         # IN: h_inf activates the hinf penalty and inequality constraints in the optimization problem
         print(f"Fitting {str(type(self))} \n-> with following params:")
@@ -42,7 +42,7 @@ class Constraint():
         x0 = self.params.get_x0()
         args = dict(x0=x0, lbx=lbx, ubx=ubx, p=None, lbg=-np.inf, ubg=np.zeros(len(ineq_constraints)))
         prob = dict(f=loss, x=x, g=ca.vertcat(*ineq_constraints))
-        solver = ca.nlpsol('solver', 'ipopt', prob, {'ipopt.print_level':0})
+        solver = ca.nlpsol('solver', 'ipopt', prob, {'ipopt.print_level':5*print_ipopt})
 
         # solve, print and return
         sol = solver(x0 = x0, lbx = lbx, ubx = ubx)
@@ -176,8 +176,33 @@ class DoublePointConstraint(Constraint):
 class DoublePointConstraint2(Constraint):
     # a point on the rigidly held object is fixed in world coordinates
     def __init__(self):
-        params_init = {'pt_0': np.array([0.05, 0, 0]),  # first contact point in the object frame, which changes wrt 'x'
-                       'pt_1': np.array([-0.05, 0, 0]),
+        params_init = {'pt_0': np.array([0.05, 0.05, 0]),  # first contact point in the object frame, which changes wrt 'x'
+                       'pt_1': np.array([-0.05, 0.05, 0]),
+                       # second contact point in the object frame, which changes wrt 'x'
+                       'plane_normal': np.array([0, 0.7, 0.7]),
+                       'd': np.array([1])}  # resting position of the point contact in world coordinates
+
+        Constraint.__init__(self, params_init)
+
+    def regularization(self):
+        return ca.fabs(ca.norm_2(self.params['pt_0'] - self.params['pt_1']) - .40)\
+               + ca.fabs(ca.norm_2(self.params['plane_normal']) - 1) # length of norm is one
+
+    def violation(self, T):
+        x_pt_0 = transform_pt(T, self.params['pt_0'])
+        x_pt_1 = transform_pt(T, self.params['pt_1'])
+
+        plane_normal = self.params['plane_normal'] / ca.norm_2(self.params['plane_normal'])
+        delta_pt0 = (ca.dot(x_pt_0, plane_normal) - self.params['d'])
+        delta_pt1 = (ca.dot(x_pt_1, plane_normal) - self.params['d'])
+        return ca.vertcat(delta_pt0, delta_pt1)
+
+
+
+class DoublePointConstraint3(Constraint):
+    # a point on the rigidly held object is fixed in world coordinates
+    def __init__(self):
+        params_init = {'pt_0': np.array([0.1, 0, 0]),  # first contact point in the object frame, which changes wrt 'x'
                        # second contact point in the object frame, which changes wrt 'x'
                        'plane_normal': np.array([1, 0, 0]),
                        'd': np.array([1])}  # resting position of the point contact in world coordinates
@@ -185,55 +210,15 @@ class DoublePointConstraint2(Constraint):
         Constraint.__init__(self, params_init)
 
     def regularization(self):
-        return ca.fabs(ca.norm_2(self.params['pt_0'] - self.params['pt_1']) - .20)\
-            +  ca.fabs(ca.norm_2(self.params['plane_normal']) - 1)
+        return ca.fabs(ca.norm_2(self.params['plane_normal']) - 1) + 0.1*ca.norm_2(self.params['pt_0'])
         # length of norm is one
 
     def violation(self, T):
-        #x_pt_0 = transform_pt(invert_TransMat(T), self.params['pt_0'])
-        #x_pt_1 = transform_pt(invert_TransMat(T), self.params['pt_1'])
-        #x_pt_0 = transform_pt(T, self.params['pt_0'])
-        #x_pt_1 = transform_pt(T, self.params['pt_1'])
+        x_pt_0 = transform_pt(T, self.params['pt_0'])
 
         plane_normal = self.params['plane_normal'] / ca.norm_2(self.params['plane_normal'])
         delta_pt0 = ca.fabs(ca.dot(x_pt_0, plane_normal) - self.params['d'])
-        delta_pt1 = ca.fabs(ca.dot(x_pt_1, plane_normal) - self.params['d'])
-        return ca.vertcat(delta_pt0, delta_pt1)
-
-class DoublePointConstraint3(Constraint):
-    # a point on the rigidly held object is fixed in world coordinates
-    def __init__(self):
-        params_init = {'pt_0': np.array([0.05, 0, 0]),  # first contact point in the object frame, which changes wrt 'x'
-                       'pt_1': np.array([-0.05, 0, 0]), # second contact point in the object frame, which changes wrt 'x'
-                       'plane_normal': np.array([1, 0, 0]), # position of the plane contact in world coordinates ax + bx + cx = d
-                       'd': np.array([1]), # position of the plane contact in world coordinates
-                       'radius_0_0': np.array([1]),
-                       'radius_0_1': np.array([1]),
-                       'radius_1_0': np.array([1]),
-                       'radius_1_1': np.array([1]),
-                       'radius_2_0': np.array([1]),
-                       'radius_2_1': np.array([1]),
-                       'radius_3_0': np.array([1]),
-                       'radius_3_1': np.array([1]),
-                       }
-        Constraint.__init__(self, params_init)
-
-    def regularization(self):
-        return ca.fabs(ca.norm_2(self.params['pt_0'] - self.params['pt_1']) - .20)\
-            +  ca.fabs(ca.norm_2(self.params['plane_normal']) - 1)
-        # length of norm is one
-
-    def violation(self, T):
-        # @Kevin 19.2: There's got to be a scalable way to do this... maybe a list for radius_01 or something? 
-        loss =  ca.fabs(self.params['radius_0_0'] - ca.norm_2(T[0, :3] - self.params['pt_0']))
-        loss += ca.fabs(self.params['radius_1_0'] - ca.norm_2(T[1, :3] - self.params['pt_0']))
-        loss += ca.fabs(self.params['radius_2_0'] - ca.norm_2(T[2, :3] - self.params['pt_0']))
-        loss += ca.fabs(self.params['radius_3_0'] - ca.norm_2(T[3, :3] - self.params['pt_0']))
-        loss += ca.fabs(self.params['radius_0_1'] - ca.norm_2(T[0, :3] - self.params['pt_1']))
-        loss += ca.fabs(self.params['radius_1_1'] - ca.norm_2(T[1, :3] - self.params['pt_1']))
-        loss += ca.fabs(self.params['radius_2_1'] - ca.norm_2(T[2, :3] - self.params['pt_1']))
-        loss += ca.fabs(self.params['radius_3_1'] - ca.norm_2(T[3, :3] - self.params['pt_1']))
-        return ca.vertcat(loss, loss) # @Kevin 19.2: hmm? why stack same loss?
+        return 10*ca.vertcat(delta_pt0, delta_pt0)
 
 class ConstraintSet():
     def __init__(self, file_path = None):
@@ -282,14 +267,31 @@ if __name__ == "__main__":
     from .visualize import *
     from .dataload_helper import *
 
-    dataset, segments, time = \
-        data(index=1, segment=True, data_name="rake").load(pose=True, kp_delta_th=0.005)
+    dataset, segments, time = data(index=3, segment=True, data_name="plug_threading").load(pose=True, kp_delta_th=0.005)
 
-    data = dataset[1]
-    print("Example pose")
-    print(data[0,:,:])
-    const = DoublePointConstraint2()
-    params = const.fit(data=data, h_inf=True)
 
-    #plot_x_pt_inX(L_pt=[params['pt_0'],params['pt_1']], X=data, plane=[params['plane_normal'],params['d']])
-    plot_x_pt_inX(L_pt=[params['pt_0'],params['pt_1']], X=data, plane=None)
+    _data = dataset[2]
+
+    const = CableConstraint()
+    params = const.fit(data=_data, h_inf=True, print_ipopt=True)
+
+
+
+
+    #const = DoublePointConstraint2()
+    #params = const.fit(data=_data, h_inf=True, print_ipopt=True)
+
+    #plot_x_pt_inX(L_pt=[params['pt_0'],params['pt_1']], X=_data, plane=[params['plane_normal'],params['d']])
+    #plot_x_pt_inX(L_pt=[params['pt_0'],params['pt_1']], X=_data, plane=None)
+
+
+
+    #plot single point
+    #plot_x_pt_inX(L_pt=[params['pt_0']], X=_data, plane=[params['plane_normal'],params['d']])
+    #plot_x_pt_inX(L_pt=[params['pt_0']], X=_data, plane=None)
+
+    # Plot only keypoint traj
+    #dataset, segments, time = \
+    #    data(index=1, segment=True, data_name="sexy_rake").load(pose=False, kp_delta_th=0.005)
+    #_data = dataset[0]
+    #plot_x_pt_inX(L_pt=_data, plane=[[0,0,1], -.04])
