@@ -36,13 +36,6 @@ class Controller():
         self.T_tcp2base = self.T_tcp
         self.T_object2base = self.T_tcp2base @ self.T_object2tcp
 
-
-    def init_camera(self):
-        self.cam = camera2.Camera()
-        self.cam.streaming()
-        self.obj_kp = main.object_data(camera=self.cam, robot=self.rob)
-        self.obj_name = "plug"
-
     def init_ros(self):
         self.listener = tf.TransformListener()
         self.force_sub = rospy.Subscriber('wrench', WrenchStamped,
