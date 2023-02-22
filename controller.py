@@ -9,6 +9,7 @@ import pickle
 
 import rospy
 from geometry_msgs.msg import WrenchStamped, Twist
+from sensor_msgs.msg import JointState
 from controller_manager_msgs.srv import ListControllers, LoadController, SwitchController
 import tf
 
@@ -38,7 +39,10 @@ class Controller():
         self.force_sub = rospy.Subscriber('wrench', WrenchStamped,
                                           self.force_callback, queue_size=1)
         self.vel_pub = rospy.Publisher('twist_controller/command', Twist, queue_size=1)
+        self.sim_pub = rospy.Publisher('contact_mode', JointState, queue_size=1)
+
         rospy.on_shutdown(self.shutdown)
+
         if online_control:
             if not self.cset:
                 raise Exception('Trying to control without a constraint set?')
@@ -85,9 +89,7 @@ class Controller():
         return np.hstack((lin_vel, rot_vel))
 
     def control(self):
-        # TODO do some control...
-          # add a goal pose to constraintSet?
-          # do something clever with the constraint jacobians?
+        # TODO something clever with the constraint jacobians?
         vel_cmd = self.interpolate(np.eye(4))
         vel_cmd[:3] *= p['vel_max'][0]/np.linalg.norm(vel_cmd[:3]) # respect the speed limit
         self.build_and_send_twist(vel_cmd)
@@ -99,13 +101,7 @@ class Controller():
         vel_cmd = np.clip(vel_cmd, -p['vel_max'], p['vel_max'])
 
         # Build twist message
-        msg = Twist()
-        msg.linear.x = vel_cmd[0]
-        msg.linear.y = vel_cmd[1]
-        msg.linear.z = vel_cmd[2]
-        msg.angular.x = vel_cmd[3]
-        msg.angular.y = vel_cmd[4]
-        msg.angular.z = vel_cmd[5]
+        msg = Twist(vel_cmd[:3], vel_cmd[3:])
 
         if not rospy.is_shutdown() and hasattr(self,'vel_pub'):
             self.vel_pub.publish(msg)
@@ -145,6 +141,12 @@ class Controller():
             return
 
         sim = self.cset.id_constraint(self.T_object2base, self.f_object)
+        name = sim.keys()
+        sim_vals = [sim[n] for n in name]
+        sim_msg = JointState(name = name, position = sim_vals)
+        sim_msg.header.stamp = rospy.Time.now()
+        self.sim_pub.publish(sim_msg)
+
 
 
 def start_node(constraint_set, online_control):
