@@ -13,6 +13,7 @@ class Constraint():
         # IN: skip_opt loads the initial params as the final params, skipping the optimization
         self.params = DecisionVarSet(x0 = params_init) # builds a dec var set with init value x0, optional params xlb xub
         self.linear = False  # indicates that the constraint only depends on linear translation, not orientation
+        self.T_final = None   # final pose in the training data for this constraint
 
     def set_params(self, params_init):
         # IN: params_init is a dictionary of the form of self.params
@@ -55,6 +56,10 @@ class Constraint():
         self.params.set_results(sol['x'])
         self.get_jac()
         print(f"Optimized params: \n {self.params}")
+
+        T_final = data[-1]
+        print(f"final pose is {self.T_final}")
+
         return self.params
 
     def violation(self, T): # constraint violation for a transformation matrix T
@@ -96,6 +101,15 @@ class Constraint():
     def save(self):
         return (type(self), self.params)
 
+class FreeSpace(Constraint):
+    def __init__(self):
+        Constraint.__init__(self, {})
+
+    def fit(self):
+        pass
+
+    def violation(self, T):
+        return 0.0
 
 class PointConstraint(Constraint):
     # a point on the rigidly held object is fixed in world coordinates
