@@ -270,7 +270,6 @@ class ConstraintSet():
         pickle.dump(save_dict, open(file_path, 'wb'))
 
     def id_constraint(self, x, f):
-
         # identify which constraint is most closely matching the current force
         threshold = 6
         self.force_buffer.append(np.linalg.norm(f))
@@ -278,9 +277,12 @@ class ConstraintSet():
             self.sim_score[name] = constr.get_similarity(x, f)
             self.jac[name] = constr.jac_fn(x[:3,-1])
         if any(it<threshold for it in self.force_buffer):
-            print("Free-space")
+            #print("Free-space")
+            pass
         else:
-            print(f"Sim score: {self.sim_score}")
+            #print(f"Sim score: {self.sim_score}")
+            pass
+        return self.sim_score
         #print(f"jac: {self.jac}")
         #print(f"jac: {constr.jac_fn(x[:3,-1])}")
 
