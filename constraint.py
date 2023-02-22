@@ -35,14 +35,11 @@ class Constraint():
             loss += ca.norm_2(self.violation(data_pt))
         loss += data.shape[0]*self.regularization()
 
-
         if h_inf:  # add a slack variable which will bound the violation, and be minimized
             self.params['slack'] = DecisionVar(x0 = [0.01], lb = [0.0], ub = [0.01])
             loss += data.shape[0]*self.params['slack']
             ineq_constraints = [ca.fabs(self.violation(d))-self.params['slack'] for d in data]
 
-        print("DEBUG LOSS")
-        print(loss.shape)
         # get dec vars; x is symbolic decision vector of all params, lbx/ubx lower/upper bounds
         x, lbx, ubx = self.params.get_dec_vectors()
         x0 = self.params.get_x0()
@@ -55,10 +52,9 @@ class Constraint():
         sol = solver(x0 = x0, lbx = lbx, ubx = ubx)
         self.params.set_results(sol['x'])
         self.get_jac()
-        print(f"Optimized params: \n {self.params}")
 
-        T_final = data[-1]
-        print(f"final pose is {self.T_final}")
+        self.params['T_final'] = data[-1]
+        print(f"Optimized params: \n {self.params}")
 
         return self.params
 
@@ -105,8 +101,11 @@ class FreeSpace(Constraint):
     def __init__(self):
         Constraint.__init__(self, {})
 
-    def fit(self):
-        pass
+    def fit(self, data):
+        self.params['T_final'] = data[-1]
+        print(f"Optimized params: \n {self.params}")
+        return self.params
+
 
     def violation(self, T):
         return 0.0
@@ -312,12 +311,13 @@ if __name__ == "__main__":
     front_pivot = dataset[2]
 
 
-    names = ['cable_fixture', 'front_pivot']
+    names = ['free_space', 'cable_fixture', 'front_pivot']
 
-    constraints = [CableConstraint,
+    constraints = [FreeSpace,
+                   CableConstraint,
                    CableConstraint]
 
-    datasets = [cable_fixture, front_pivot]
+    datasets = [dataset[0], cable_fixture, front_pivot]
 
     c_set = ConstraintSet()
     c_set.fit(names=names, constraints=constraints, datasets=datasets)
