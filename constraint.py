@@ -57,7 +57,8 @@ class Constraint():
         self.get_jac()
         print(f"Optimized params: \n {self.params}")
 
-        T_final = data[-1]
+        self.T_final = data[-1]
+        #self.violation_con = [self.violation(d) for d in data]
         print(f"final pose is {self.T_final}")
 
         return self.params
@@ -253,13 +254,11 @@ class ConstraintSet():
         # IN: if file_path, will load constraint set from there
         self.constraints = {}
         self.sim_score = {}
-<<<<<<< HEAD
-        #self.jac = {}
-=======
         self.jac = {}
+        self.vio = {}
         self.force_buffer = deque(maxlen=8)
 
->>>>>>> adc833ebdc612f0bcd047f48ea6079b72d8ca2e2
+
 
         if file_path:
             self.load(file_path)
@@ -289,33 +288,26 @@ class ConstraintSet():
 
     def id_constraint(self, x, f):
         # identify which constraint is most closely matching the current force
-<<<<<<< HEAD
-        threshold =  # to be defined
-        for name, constr in self.constraints.items():
-            self.sim_score[name] = constr.get_similarity(x, f)
-            #self.jac[name] = constr.jac_fn(x[:3,-1])
 
-        if np.linalg.norm(f)< threshold:
-            print('free-space')
-        else:
-            print(f"Sim score: {self.sim_score}")
-            #print(f"jac: {self.jac}")
-=======
         threshold = 6
+        tol = 0.5  # to be defined
         self.force_buffer.append(np.linalg.norm(f))
         for name, constr in self.constraints.items():
             self.sim_score[name] = constr.get_similarity(x, f)
             self.jac[name] = constr.jac_fn(x[:3,-1])
-        if any(it<threshold for it in self.force_buffer):
-            #print("Free-space")
-            pass
+            self.vio[name] = constr.violation(x)
+
+        if (any(it<threshold for it in self.force_buffer)) or (all(itr>tol for itr in self.vio.values())):
+            print("Free-space")
+            return constraints['free_space']
         else:
-            #print(f"Sim score: {self.sim_score}")
-            pass
-        return self.sim_score
+            print(f"Sim score: {self.sim_score}")
+            active_con = max(self.sim_score, key=lambda y: self.sim_score(y))
+            return self.sim_score, constraints[active_con]
+
         #print(f"jac: {self.jac}")
         #print(f"jac: {constr.jac_fn(x[:3,-1])}")
->>>>>>> adc833ebdc612f0bcd047f48ea6079b72d8ca2e2
+
 
 if __name__ == "__main__":
     from .dataload_helper import *
