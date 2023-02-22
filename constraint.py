@@ -293,12 +293,12 @@ class ConstraintSet():
             self.vio[name] = constr.violation(x)
 
         if (any(it<threshold for it in self.force_buffer)) or (all(itr>tol for itr in self.vio.values())):
-            print("Free-space")
-            return constraints['free_space']
+            #print("Free-space")
+            return self.sim_score, self.constraints['free_space']
         else:
-            print(f"Sim score: {self.sim_score}")
-            active_con = max(self.sim_score, key=lambda y: self.sim_score(y))
-            return self.sim_score, constraints[active_con]
+            #print(f"Sim score: {self.sim_score}")
+            active_con = min(self.sim_score, key=lambda y: self.sim_score[y])
+            return self.sim_score, self.constraints[active_con]
 
         #print(f"jac: {self.jac}")
         #print(f"jac: {constr.jac_fn(x[:3,-1])}")

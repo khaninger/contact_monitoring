@@ -19,7 +19,10 @@ from .constraint import *
 from .rotation_helpers import xyz_to_rotation, invert_TransMat
 
 
-p = {'vel_max': np.array([*[0.05]*3, *[0.01]*3]),
+p = {'vel_max': np.array([*[0.02]*3, *[0.001]*3]), # maximum velocity for lin, angular motion
+     'acc_max': 0.1,       # maximum linear acceleration
+     'hz':500,              # sample rate of controller
+     'stop_distance': 0.01, # meters from goal pose to stop, linear
     }
 
 class Controller():
@@ -29,6 +32,8 @@ class Controller():
         self.T_tcp = np.eye(4)
         self.T_object2base = np.eye(4)
         self.T_object2tcp = pickle.load(open("/home/ipk410/converging/contact_monitoring/data/constraint_T.pickle", "rb"))["plug"]
+        self.vel_cmd_prev = np.zeros(6)
+        self.active_constraint_prev = None
         #print("self.T_object2tcp")
         #print(self.T_object2tcp)
 
@@ -79,19 +84,28 @@ class Controller():
                                     msg.wrench.torque.x, msg.wrench.torque.y, msg.wrench.torque.z))
         except:
             print("Error loading ROS message in force_callback")
-        sim = self.detect_contact()
-        self.control()
+        active_constraint = self.detect_contact()
+        self.control(active_constraint)
 
-    def interpolate(self, T_f, time = 4):
+    def interpolate(self, T_f):
         #T_err = T_f@invert_TransMat(self.T_tcp)
-        lin_vel = (T_f[:3,3]-self.T_tcp[:3,3])/time
+        err = T_f[:3,3]-self.T_object2base[:3,3]
+        err_norm = np.linalg.norm(err)
+        if err_norm < p['stop_distance']:
+            lin_vel = np.zeros(3)
+        else:
+            lin_vel = err/err_norm
         rot_vel = np.zeros(3)
         return np.hstack((lin_vel, rot_vel))
 
-    def control(self):
+    def control(self, active_constraint):
         # TODO something clever with the constraint jacobians?
-        vel_cmd = self.interpolate(np.eye(4))
-        vel_cmd[:3] *= p['vel_max'][0]/np.linalg.norm(vel_cmd[:3]) # respect the speed limit
+        #print(f'Active constraint {active_constraint}') # final pose {active.params["T_final"]}')
+        vel_cmd = self.interpolate(active_constraint.params['T_final'])#self.interpolate(np.eye(4))
+        vel_cmd[:3] *= p['vel_max'][0] # respect the speed limit
+        vel_cmd = np.clip(vel_cmd,
+                          self.vel_cmd_prev-p['acc_max']/p['hz'],
+                          self.vel_cmd_prev+p['acc_max']/p['hz'])
         self.build_and_send_twist(vel_cmd)
 
     def build_and_send_twist(self, vel_cmd = np.zeros(6), kill_pub = False):
@@ -100,24 +114,20 @@ class Controller():
         # Limit the velocity command
         vel_cmd = np.clip(vel_cmd, -p['vel_max'], p['vel_max'])
 
+        self.vel_cmd_prev = vel_cmd
+
         # Build twist message
-        msg = Twist(vel_cmd[:3], vel_cmd[3:])
+        msg = Twist()
+        msg.linear.x = vel_cmd[0]
+        msg.linear.y = vel_cmd[1]
+        msg.linear.z = vel_cmd[2]
+        msg.angular.x = vel_cmd[3]
+        msg.angular.y = vel_cmd[4]
+        msg.angular.z = vel_cmd[5]
 
         if not rospy.is_shutdown() and hasattr(self,'vel_pub'):
             self.vel_pub.publish(msg)
-            if kill_pub: del self.vel_pub # This is needed because callbacks from force might be queued up
             return True
-
-    def shutdown(self):
-        # Gets executed when the node is shutdown
-        res = self.build_and_send_twist(vel_cmd = np.zeros(6), kill_pub = True)
-        if res:
-            print("Sent zero velocity command")
-        else:
-            print("** Failed to send zero velocity command! Hit that Estop **")
-        if self.switch_controller([],['twist_controller'],1,True,5):
-            print("Killed the twist_controller")
-        print("Shutting down controller")
 
     def detect_contact(self):
         self.tcp_process()
@@ -136,17 +146,32 @@ class Controller():
         self.T_wrench_tcp2object = np.hstack([np.vstack([self.R_tcp2object,self.cross_product@self.R_tcp2object]),np.vstack([np.zeros((3,3)),self.R_tcp2object])])
         self.f_object = self.T_wrench_tcp2object @ self.f_tcp
 
-        if not self.cset:
-            print("No cset object, skipping similarity eval")
-            return
+        sim, active_constraint = self.cset.id_constraint(self.T_object2base, self.f_object)
 
-        sim = self.cset.id_constraint(self.T_object2base, self.f_object)
+        if active_constraint is not self.active_constraint_prev:
+            print(f'Changing constraint to {active_constraint}')
+            self.active_constraint_prev = active_constraint
+
         name = sim.keys()
         sim_vals = [sim[n] for n in name]
         sim_msg = JointState(name = name, position = sim_vals)
         sim_msg.header.stamp = rospy.Time.now()
-        self.sim_pub.publish(sim_msg)
+        if not rospy.is_shutdown() and hasattr(self, 'sim_pub'):
+            self.sim_pub.publish(sim_msg)
+        return active_constraint
 
+    def shutdown(self):
+        # Gets executed when the node is shutdown
+        res = self.build_and_send_twist(vel_cmd = np.zeros(6))
+        del self.vel_pub # This is needed because callbacks from force might be queued up
+        del self.sim_pub
+        if res:
+            print("Sent zero velocity command")
+        else:
+            print("** Failed to send zero velocity command! Hit that Estop **")
+        if self.switch_controller([],['twist_controller'],1,True,5):
+            print("Killed the twist_controller")
+        print("Shutting down controller")
 
 
 def start_node(constraint_set, online_control):
