@@ -11,6 +11,14 @@ def transform_pt(T, x):
         T = ca.DM(T)
     return (T @ ca.vertcat(x, ca.SX(1)))[:3]
 
+def invert_TransMat(T_a2b):
+    T_b2a = np.eye(4)
+    R_b2a = T_a2b[0:3, 0:3].T
+    t_b2a = -R_b2a @ T_a2b[0:3, 3]
+    T_b2a[0:3, 0:3] = R_b2a
+    T_b2a[0:3, 3] = t_b2a
+    return T_b2a
+
 #### Rotation vectors ####
 def rotvec_to_rotation(vec):
     ty = ca.SX if type(vec) is ca.SX else ca.DM
