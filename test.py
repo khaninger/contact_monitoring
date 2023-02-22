@@ -27,8 +27,6 @@ def set_params():
 
 def save_cset():
     # plug_threading
-    constraint = CableConstraint()
-
     # load threading data
     dataset, segments, time = data(index=2, segment=True, data_name="plug_threading").load(pose=True, kp_delta_th=0.005)
     cable_fixture = dataset[1]
@@ -59,10 +57,42 @@ def test_similarity():
     input_force = np.array([0.2,-4.5,0])
     c_set.id_constraint_force(input_x, input_force)
 
+def test_rake_fit_one_pt():
+    for i in range(3):
+        dataset, segments, time = data(index=i+1, segment=True, data_name="sexy_rake").load(pose=True, kp_delta_th=0.003)
+        rake_on_plane = dataset[1]
+        constraint = RakeConstraint()
+        params = constraint.fit(data=rake_on_plane, h_inf=True)
+        points = [params['pt']]
+        plane = [params['plane_normal'], params['d']]
+        plot_x_pt_inX(L_pt=points, X=rake_on_plane, plane=plane)
+        # print plane z height at xy mean of data
+        xy_mean = np.mean(rake_on_plane[:,:2,3], axis=0)
+        z_height = np.dot(params['plane_normal'],np.append(xy_mean,0))
+        print(f"\n****RESULTS***\n\nz_height of plane at xy mean of data:\n{z_height}")
+        print(f"\n\nPlane Normal at:\n{params['plane_normal']}")
+
+
+def test_rake_fit_two_pt():
+    for i in range(3):
+        dataset, segments, time = data(index=i+1, segment=True, data_name="sexy_rake").load(pose=True, kp_delta_th=0.003)
+        rake_on_plane = dataset[1]
+        constraint = RakeConstraint3()
+        params = constraint.fit(data=rake_on_plane, h_inf=True)
+        plane = [params['plane_normal'], params['d']]
+        points = [params['pt_0'], params['pt_1']]
+        plot_x_pt_inX(L_pt=points, X=rake_on_plane, plane=plane)
+        # print plane z height at xy mean of data
+        xy_mean = np.mean(rake_on_plane[:,:2,3], axis=0)
+        z_height = np.dot(params['plane_normal'],np.append(xy_mean,0))
+        print(f"\n****RESULTS***\n\nz_height of plane at xy mean of data:\n{z_height}")
+        print(f"\n\nPlane Normal at:\n{params['plane_normal']}")
+
 if __name__ == "__main__":
     print("** Starting test(s) **")
     #cable_fit()
-    rake_fit()
+    #test_rake_fit_one_pt()
+    test_rake_fit_two_pt()
     #set_params()
     #save_cset()
     #test_similarity()
