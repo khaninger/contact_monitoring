@@ -61,8 +61,14 @@ class DecisionVarSet():
             key: name of variable
             value: decision_var which should be set there
         """
-        if value.x is None:
-            value.x = self.__ty(key, *value.shape)
+        if type(value) == DecisionVar:
+            if value.x is None:
+                value.x = self.__ty(key, *value.shape)
+        else:
+            val_orig = value
+            value = DecisionVar(value)
+            value.x = val_orig
+            print(f'DEBUG: {value.x}')
         self.__vars[key] = value
         self.__keys = list(self.__vars.keys())
 
