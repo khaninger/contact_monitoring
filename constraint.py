@@ -13,7 +13,7 @@ class Constraint():
         # IN: skip_opt loads the initial params as the final params, skipping the optimization
         self.params = DecisionVarSet(x0 = params_init) # builds a dec var set with init value x0, optional params xlb xub
         self.linear = False  # indicates that the constraint only depends on linear translation, not orientation
-        self.pose_goal = np.eye(4)
+        self.T_final = None   # final pose in the training data for this constraint
 
     def set_params(self, params_init):
         # IN: params_init is a dictionary of the form of self.params
@@ -27,6 +27,7 @@ class Constraint():
         # IN: h_inf activates the hinf penalty and inequality constraints in the optimization problem
         print(f"Fitting {str(type(self))} \n-> with following params:")
         print(self.params)
+
         loss = 0
         ineq_constraints = []
 
@@ -34,27 +35,27 @@ class Constraint():
             loss += ca.norm_2(self.violation(data_pt))
         loss += data.shape[0]*self.regularization()
 
-
         if h_inf:  # add a slack variable which will bound the violation, and be minimized
             self.params['slack'] = DecisionVar(x0 = [0.01], lb = [0.0], ub = [0.1])
             loss += data.shape[0]*self.params['slack']
             ineq_constraints = [ca.fabs(self.violation(d))-self.params['slack'] for d in data]
 
-        print("DEBUG LOSS")
-        print(loss.shape)
         # get dec vars; x is symbolic decision vector of all params, lbx/ubx lower/upper bounds
         x, lbx, ubx = self.params.get_dec_vectors()
         x0 = self.params.get_x0()
         args = dict(x0=x0, lbx=lbx, ubx=ubx, p=None, lbg=-np.inf, ubg=np.zeros(len(ineq_constraints)))
 
         prob = dict(f=loss, x=x, g=ca.vertcat(*ineq_constraints))
-        solver = ca.nlpsol('solver', 'ipopt', prob, {'ipopt.print_level':0})
+        solver = ca.nlpsol('solver', 'ipopt', prob, {'ipopt.print_level':2})
 
         # solve, print and return
         sol = solver(x0 = x0, lbx = lbx, ubx = ubx)
         self.params.set_results(sol['x'])
         self.get_jac()
+
+        self.params['T_final'] = data[-1]
         print(f"Optimized params: \n {self.params}")
+
         return self.params
 
     def violation(self, T): # constraint violation for a transformation matrix T
@@ -96,6 +97,17 @@ class Constraint():
     def save(self):
         return (type(self), self.params)
 
+class FreeSpace(Constraint):
+    def __init__(self):
+        Constraint.__init__(self, {})
+
+    def fit(self, data):
+        self.params['T_final'] = data[-1]
+        print(f"Optimized params: \n {self.params}")
+        return self.params
+
+    def violation(self, T):
+        return 0.0
 
 class PointConstraint(Constraint):
     # a point on the rigidly held object is fixed in world coordinates
@@ -255,11 +267,13 @@ class ConstraintSet():
         self.constraints = {}
         self.sim_score = {}
         self.jac = {}
+        self.vio = {}
         self.force_buffer = deque(maxlen=8)
+
 
         if file_path:
             self.load(file_path)
-        
+
     def fit(self, names, constraints, datasets):
         # in: datasets is a list of clustered data, in order.
         # in: constraints is a list of constraint objects, in order.
@@ -284,17 +298,25 @@ class ConstraintSet():
         pickle.dump(save_dict, open(file_path, 'wb'))
 
     def id_constraint(self, x, f):
+        # identify which constraint is most closely matching the current force
 
         # identify which constraint is most closely matching the current force
         threshold = 6
+        tol = 0.5  # to be defined
         self.force_buffer.append(np.linalg.norm(f))
         for name, constr in self.constraints.items():
             self.sim_score[name] = constr.get_similarity(x, f)
-            self.jac[name] = constr.jac_fn(x[:3,-1])
-        if any(it<threshold for it in self.force_buffer):
-            print("Free-space")
+            #self.jac[name] = constr.jac_fn(x[:3,-1])
+            self.vio[name] = constr.violation(x)
+
+        if (any(it<threshold for it in self.force_buffer)) or (all(itr>tol for itr in self.vio.values())):
+            #print("Free-space")
+            return self.sim_score, self.constraints['free_space']
         else:
-            print(f"Sim score: {self.sim_score}")
+            #print(f"Sim score: {self.sim_score}")
+            active_con = min(self.sim_score, key=lambda y: self.sim_score[y])
+            return self.sim_score, self.constraints[active_con]
+
         #print(f"jac: {self.jac}")
         #print(f"jac: {constr.jac_fn(x[:3,-1])}")
 
