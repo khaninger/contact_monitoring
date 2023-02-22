@@ -1,17 +1,6 @@
 import casadi as ca
 import numpy as np
 
-def build_twist_msg(vel_cmd):
-    msg = Twist()
-    msg.header.stamp = rospy.Time.now()
-    msg.linear.x = vel_cmd[0]
-    msg.linear.y = vel_cmd[1]
-    msg.linear.z = vel_cmd[2]
-    msg.angular.x = vel_cmd[3]
-    msg.angular.y = vel_cmd[4]
-    msg.angular.z = vel_cmd[5]
-    return msg
-
 def cross(a,b):
     return ca.vertcat(a[1]*b[2]-a[2]*b[1],
                       a[2]*b[0]-a[0]*b[2],
