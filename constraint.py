@@ -60,7 +60,7 @@ class Constraint():
 
     def violation(self, T): # constraint violation for a transformation matrix T
         raise NotImplementedError
-        
+
     def get_jac(self): # construct the jacobian and pinv
         x_tcp_sym = ca.SX.sym("x_tcp_sym",3+3*(not self.linear))
         T_tcp_sym = self.pose_to_tmat(x_tcp_sym)
@@ -87,13 +87,13 @@ class Constraint():
         else:
             T = rotvec_pose_to_tmat(x)
         return T
-        
+
     def tmat_to_pose(self, T): # T is the transformation matrix
         if self.linear:
             return T[:3,-1]
         else:
             return tmat_to_rotvec_pose(T)
-    
+
     def save(self):
         return (type(self), self.params)
 
@@ -105,7 +105,6 @@ class FreeSpace(Constraint):
         self.params['T_final'] = data[-1]
         print(f"Optimized params: \n {self.params}")
         return self.params
-
 
     def violation(self, T):
         return 0.0
@@ -255,10 +254,9 @@ class ConstraintSet():
         self.jac = {}
         self.force_buffer = deque(maxlen=8)
 
-
         if file_path:
             self.load(file_path)
-        
+
     def fit(self, names, constraints, datasets):
         # in: datasets is a list of clustered data, in order.
         # in: constraints is a list of constraint objects, in order.
@@ -288,7 +286,7 @@ class ConstraintSet():
         self.force_buffer.append(np.linalg.norm(f))
         for name, constr in self.constraints.items():
             self.sim_score[name] = constr.get_similarity(x, f)
-            self.jac[name] = constr.jac_fn(x[:3,-1])
+            #self.jac[name] = constr.jac_fn(x[:3,-1])
         if any(it<threshold for it in self.force_buffer):
             #print("Free-space")
             pass
@@ -301,8 +299,6 @@ class ConstraintSet():
 
 if __name__ == "__main__":
     from .dataload_helper import *
-    #plug_threading
-    constraint = CableConstraint()
 
     #load threading data
     dataset, segments, time = data(index=1, segment=True, data_name="plug_threading").load(pose=True, kp_delta_th=0.005)
