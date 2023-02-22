@@ -26,18 +26,29 @@ def set_params():
     print(const.jac_fn(test))
 
 def save_cset():
+    # plug_threading
+    constraint = CableConstraint()
+
+    # load threading data
+    dataset, segments, time = data(index=2, segment=True, data_name="plug_threading").load(pose=True, kp_delta_th=0.005)
+    cable_fixture = dataset[1]
+    dataset, segments, time = data(index=1, segment=True, data_name="plug_threading").load(pose=True, kp_delta_th=0.005)
+    front_pivot = dataset[2]
+
     names = ['cable_fixture', 'front_pivot']
+
     constraints = [CableConstraint,
-                   CableConstraint]  # list of constraints
-    datasets, _, _ = data(index=1, segment=True, data_name='plug').load(pose=True, kp_delta_th=0.005)
-    
+                   CableConstraint]
+
+    datasets = [cable_fixture, front_pivot]
+
     c_set = ConstraintSet()
     c_set.fit(names=names, constraints=constraints, datasets=datasets)
 
     path = os.getcwd() + "/contact_monitoring/data/cable_constraint.pickle"
     c_set.save(file_path=path)
     c_set.load(file_path=path)
-    for i in range(2): print(c_set.constraints)
+    print(c_set.constraints)
 
 def test_similarity():
     path = os.getcwd() + "/contact_monitoring/data/cable_constraint.pickle"

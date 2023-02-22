@@ -5,8 +5,8 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="4996e4d5-555e-4ec5-a3d4-2a95c4043bd5" name="Changes" comment="Ad visualize.py">
-      <change beforePath="$PROJECT_DIR$/.#constraint.py" beforeDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+<<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
 =======
@@ -17,6 +17,12 @@
       <change beforePath="$PROJECT_DIR$/constraint_id_test.ipynb" beforeDir="false" afterPath="$PROJECT_DIR$/constraint_id_test.ipynb" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/visualize.py" beforeDir="false" afterPath="$PROJECT_DIR$/visualize.py" afterDir="false" />
 >>>>>>> adc833ebdc612f0bcd047f48ea6079b72d8ca2e2
+=======
+      <change beforePath="$PROJECT_DIR$/data/Exp_Notes" beforeDir="false" afterPath="$PROJECT_DIR$/data/Exp_Notes" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/data/video_sexy_rake_1.mp4" beforeDir="false" afterPath="$PROJECT_DIR$/data/video_sexy_rake_1.mp4" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/data/video_sexy_rake_2.mp4" beforeDir="false" afterPath="$PROJECT_DIR$/data/video_sexy_rake_2.mp4" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/data/video_sexy_rake_3.mp4" beforeDir="false" afterPath="$PROJECT_DIR$/data/video_sexy_rake_3.mp4" afterDir="false" />
+>>>>>>> 133a0260bddb427c0d31b112c5c6cda422a42272
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -41,14 +47,14 @@
     <option name="hideEmptyMiddlePackages" value="true" />
     <option name="showLibraryContents" value="true" />
   </component>
-  <component name="PropertiesComponent"><![CDATA[{
-  "keyToString": {
-    "RunOnceActivity.OpenProjectViewOnStart": "true",
-    "RunOnceActivity.ShowReadmeOnStart": "true",
-    "last_opened_file_path": "/home/ipk410/hegechri/Thesis",
-    "settings.editor.selected.configurable": "PyConsoleConfigurable.Python Console"
+  <component name="PropertiesComponent">{
+  &quot;keyToString&quot;: {
+    &quot;RunOnceActivity.OpenProjectViewOnStart&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
+    &quot;last_opened_file_path&quot;: &quot;/home/ipk410/hegechri/Thesis&quot;,
+    &quot;settings.editor.selected.configurable&quot;: &quot;PyConsoleConfigurable.Python Console&quot;
   }
-}]]></component>
+}</component>
   <component name="PyConsoleOptionsProvider">
     <option name="myPythonConsoleState">
       <console-settings interpreter-options="-m contact_monitoring.constraint" module-name="contact_monitoring" is-module-sdk="true" working-directory="$PROJECT_DIR$/..">
@@ -86,7 +92,7 @@
       <breakpoints>
         <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
           <url>file://$PROJECT_DIR$/controller.py</url>
-          <line>98</line>
+          <line>132</line>
           <option name="timeStamp" value="1" />
         </line-breakpoint>
       </breakpoints>
