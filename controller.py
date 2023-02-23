@@ -34,8 +34,6 @@ class Controller():
         self.T_object2tcp = pickle.load(open("/home/ipk410/converging/contact_monitoring/data/constraint_T.pickle", "rb"))["plug"]
         self.vel_cmd_prev = np.zeros(6)
         self.active_constraint_prev = None
-        #print("self.T_object2tcp")
-        #print(self.T_object2tcp)
 
         self.init_ros(online_control)
 
@@ -76,7 +74,13 @@ class Controller():
 
     def objectpose_process(self):
         self.T_tcp2base = self.T_tcp
+        print("self.T_object2tcp")
+        print(self.T_object2tcp)
+        print('TCP')
+        print(self.T_tcp2base)
         self.T_object2base = self.T_tcp2base @ self.T_object2tcp
+        print('obj2base')
+        print(self.T_object2base)
 
     def force_callback(self, msg):
         try:
@@ -134,19 +138,13 @@ class Controller():
         self.objectpose_process()
         # The transformation of force frame is from the MS Thesis of Bo Ho
         # SIX-DEGREE-OF-FREEDOM ACTIVE REAL-TIME FORCE CONTROL OF MANIPULATOR, pg. 63
-        self.R_object2tcp = self.T_object2tcp[:3, :3]
-        self.R_tcp2object = self.R_object2tcp.T
-        self.pos_tcp2base = self.T_tcp2base[:3,-1]
-        self.pos_object2base = self.T_object2base[:3,-1]
-        self.T_tcp2object = invert_TransMat(self.T_object2tcp)
-        self.pos_tcp2object = self.T_tcp2object[:3,-1]
-        self.cross_product = np.array([[0,-self.pos_tcp2object[-1],self.pos_tcp2object[1]],
-                                       [self.pos_tcp2object[-1],0,-self.pos_tcp2object[0]],
-                                       [-self.pos_tcp2object[1],self.pos_tcp2object[0],0]])
-        self.T_wrench_tcp2object = np.hstack([np.vstack([self.R_tcp2object,self.cross_product@self.R_tcp2object]),np.vstack([np.zeros((3,3)),self.R_tcp2object])])
-        self.f_object = self.T_wrench_tcp2object @ self.f_tcp
+        #self.R_object2tcp = self.T_object2tcp[:3, :3]
+        #self.R_tcp2object = self.R_object2tcp.T
+        #self.pos_tcp2base = self.T_tcp2base[:3,-1]
+        #self.pos_object2base = self.T_object2base[:3,-1]
+        self.f_base = transform_force(self.T_tcp, self.f_tcp)
 
-        sim, active_constraint = self.cset.id_constraint(self.T_object2base, self.f_object)
+        sim, active_constraint = self.cset.id_constraint(self.T_object2base, self.f_base)
 
         if active_constraint is not self.active_constraint_prev:
             print(f'Changing constraint to {active_constraint}')
