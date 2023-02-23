@@ -91,19 +91,20 @@ def save_cset_cable():
 
 
 def save_cset_rake():
-    #load threading data
+    #load rake data
     dataset, segments, time = data(index=1, segment=True, data_name="sexy_rake").load(pose=True, kp_delta_th=0.003)
     rake_on_plane = dataset[1]
-    c_set = RakeConstraint3()
-    c_set.fit(data=rake_on_plane, h_inf=True)
+    rake_freespace = dataset[0]
+    dataset, segments, time = data(index=1, segment=True, data_name="sexy_rake_hinge").load(pose=True, kp_delta_th=0.003)
+    rake_on_hinge = dataset[2]
 
-
-    names = ['free_space', 'plane_0']
+    names = ['free_space', 'plane', 'hinge']
 
     constraints = [FreeSpace,
-                   RakeConstraint3]
+                   RakeConstraint_2pt,
+                   RakeConstraint_hinge]
 
-    datasets = [dataset[0], dataset[1]]
+    datasets = [rake_freespace, rake_on_plane, rake_on_hinge]
 
     c_set = ConstraintSet()
     c_set.fit(names=names, constraints=constraints, datasets=datasets)
@@ -126,7 +127,7 @@ def test_rake_fit_one_pt():
     for i in range(3):
         dataset, segments, time = data(index=i+1, segment=True, data_name="sexy_rake").load(pose=True, kp_delta_th=0.003)
         rake_on_plane = dataset[1]
-        constraint = RakeConstraint()
+        constraint = RakeConstraint_1pt()
         params = constraint.fit(data=rake_on_plane, h_inf=True)
         points = [params['pt']]
         plane = [params['plane_normal'], params['d']]
@@ -142,7 +143,7 @@ def test_rake_fit_two_pt():
     for i in range(3):
         dataset, segments, time = data(index=i+1, segment=True, data_name="sexy_rake").load(pose=True, kp_delta_th=0.003)
         rake_on_plane = dataset[1]
-        constraint = RakeConstraint3()
+        constraint = RakeConstraint_2pt()
         params = constraint.fit(data=rake_on_plane, h_inf=True)
         plane = [params['plane_normal'], params['d']]
         points = [params['pt_0'], params['pt_1']]
@@ -153,17 +154,30 @@ def test_rake_fit_two_pt():
         print(f"\n****RESULTS***\n\nz_height of plane at xy mean of data:\n{z_height}")
         print(f"\n\nPlane Normal at:\n{params['plane_normal']}")
 
+
+
+def test_rake_fit_hinge():
+    for i in range(3):
+        dataset, segments, time = data(index=i+1, segment=True, data_name="sexy_rake_hinge").load(pose=True, kp_delta_th=0.003)
+        rake_on_hinge = dataset[2]
+
+        constraint = RakeConstraint_hinge()
+        params = constraint.fit(data=rake_on_hinge, h_inf=False)
+        points = [params['pt_0'], params['pt_1']]
+        plot_x_pt_inX(L_pt=points, X=rake_on_hinge, plane=None)
+
+
 if __name__ == "__main__":
     print("** Starting test(s) **")
     #cable_fit()
     #cable_fit_all()
-    save_cset_cable()
+    #save_cset_cable()
     #test_rake_fit_one_pt()
     #test_rake_fit_two_pt()
     #set_params()
     #save_cset()
     #test_similarity()
-    #save_cset_rake()
-
+    save_cset_rake()
+    #test_rake_fit_hinge()
 
 
