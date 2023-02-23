@@ -257,6 +257,7 @@ class ConstraintSet():
         self.jac = {}
         self.vio = {}
         self.force_buffer = deque(maxlen=8)
+        self.con_buffer = deque(maxlen=2)  # storing actual and previous constraint for smoothing
 
 
 
@@ -290,23 +291,30 @@ class ConstraintSet():
         # identify which constraint is most closely matching the current force
 
         threshold = 6
-        tol = 0.5  # to be defined
+        tol_violation = 0.5  # to be defined
+        tol_sim = 0.4  # to be better defined
         self.force_buffer.append(np.linalg.norm(f))
         for name, constr in self.constraints.items():
             self.sim_score[name] = constr.get_similarity(x, f)
             self.jac[name] = constr.jac_fn(x[:3,-1])
             self.vio[name] = constr.violation(x)
+        active_con = min(self.sim_score, key=lambda  y: self.sim_score(y))
+        self.con_buffer.append(active_con)
 
-        if (any(it<threshold for it in self.force_buffer)) or (all(itr>tol for itr in self.vio.values())):
+
+        if (any(it<threshold for it in self.force_buffer)) or (all(itr>tol_violation for itr in self.vio.values())):
             print("Free-space")
             return constraints['free_space']
+        elif self.sim_score[self.con_buffer[1]] < self.sim_score[self.con_buffer[0]] -tol_violation:
+            print(f"Sim score: {self.sim_score}")
+            return self.sim_score, self.constraints[self.con_buffer[1]]
         else:
             print(f"Sim score: {self.sim_score}")
-            active_con = max(self.sim_score, key=lambda y: self.sim_score(y))
-            return self.sim_score, constraints[active_con]
+            return self.sim_score, self.constraints[self.con_buffer[0]]
 
-        #print(f"jac: {self.jac}")
-        #print(f"jac: {constr.jac_fn(x[:3,-1])}")
+
+
+
 
 
 if __name__ == "__main__":
