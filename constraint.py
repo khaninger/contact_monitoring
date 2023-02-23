@@ -76,9 +76,15 @@ class Constraint():
         # IN: T is a transformation matrix for pose
         # IN: f is the numerical value for measured force
         x = self.tmat_to_pose(T)
+        #print(f'in get_sim linear val: {self.linear} with type {type(self)}')
         if self.linear:
             f = f[:3]
-        return ca.norm_2(ca.SX(f)-self.jac_fn(x).T@(ca.SX(f).T@self.jac_pinv_fn(x)))
+        #print(f'jacobian: {self.jac_fn(x)}')
+        #print(f'f: {ca.SX(f).shape}') 6,1
+        #print(f'jac: {self.jac_fn(x).shape}') 1,6
+        #print(f'pinv: {self.jac_pinv_fn(x).shape}') 6,1
+        #return ca.norm_2(ca.SX(f)-self.jac_fn(x).T@(ca.SX(f).T@self.jac_pinv_fn(x)))
+        return ca.norm_2(ca.SX(f)-self.jac_pinv_fn(x)@(self.jac_fn(x))@ca.SX(f))
 
     def pose_to_tmat(self, x): # x is the pose representation
         if self.linear:
@@ -269,7 +275,7 @@ class ConstraintSet():
         self.jac = {}
         self.vio = {}
         self.force_buffer = deque(maxlen=8)
-
+        self.con_buffer = deque(maxlen=1)  # storing actual and previous constraint for smoothing
 
         if file_path:
             self.load(file_path)
@@ -299,26 +305,30 @@ class ConstraintSet():
 
     def id_constraint(self, x, f):
         # identify which constraint is most closely matching the current force
-
-        # identify which constraint is most closely matching the current force
         threshold = 6
-        tol = 0.5  # to be defined
+        tol_violation = 0.5  # to be defined
+        tol_sim = 2.0  # to be better defined
         self.force_buffer.append(np.linalg.norm(f))
         for name, constr in self.constraints.items():
             self.sim_score[name] = constr.get_similarity(x, f)
-            #self.jac[name] = constr.jac_fn(x[:3,-1])
+            #if name != 'free_space': print(f'{name}: {constr.jac_fn(x[:3,-1])}')
             self.vio[name] = constr.violation(x)
 
-        if (any(it<threshold for it in self.force_buffer)) or (all(itr>tol for itr in self.vio.values())):
-            #print("Free-space")
-            return self.sim_score, self.constraints['free_space']
+        print(f"Sim score: {self.sim_score}")
+        if (any(it<threshold for it in self.force_buffer)): #or (all(itr>tol_violation for itr in self.vio.values())):
+            active_con = 'free_space'
         else:
-            #print(f"Sim score: {self.sim_score}")
-            active_con = min(self.sim_score, key=lambda y: self.sim_score[y])
-            return self.sim_score, self.constraints[active_con]
+            new_con = min(self.sim_score, key=lambda  y: self.sim_score[y])
+            if len(self.con_buffer) is 0 or self.sim_score[new_con] < self.sim_score[self.con_buffer[0]] - tol_violation: # We accept the new constraint because it's better
+                print(f'New constraint: {new_con}')
+                active_con = new_con
+                self.con_buffer.append(new_con)  # Save it for future comparison
+            else: # We reject the new constraint because its not better
+                #print(f"Sim score: {self.sim_score}")
+                active_con = self.con_buffer[0]
+        self.con_buffer.append(active_con)
+        return self.sim_score, self.constraints[active_con]
 
-        #print(f"jac: {self.jac}")
-        #print(f"jac: {constr.jac_fn(x[:3,-1])}")
 
 if __name__ == "__main__":
     print("try test.py instead :)")
