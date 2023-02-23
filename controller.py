@@ -26,12 +26,14 @@ p = {'vel_max': np.array([*[0.02]*3, *[0.001]*3]), # maximum velocity for lin, a
     }
 
 class Controller():
-    def __init__(self, constraint_set = None, online_control = False):
-        self.cset = constraint_set
+    def __init__(self, task, online_control = False):
+        self.cset = ConstraintSet(file_path = "contact_monitoring/data/"+task+"_constraint.pickle")
+        self.T_object2tcp = pickle.load(open("contact_monitoring/data/constraint_T.pickle", "rb"))[task]
+
         self.f_tcp = None
         self.T_tcp = np.eye(4)
         self.T_object2base = np.eye(4)
-        self.T_object2tcp = pickle.load(open("/home/ipk410/converging/contact_monitoring/data/constraint_T.pickle", "rb"))["plug"]
+
         self.vel_cmd_prev = np.zeros(6)
         self.active_constraint_prev = None
 
@@ -138,6 +140,14 @@ class Controller():
         #self.pos_object2base = self.T_object2base[:3,-1]
         self.f_base = transform_force(self.T_tcp, self.f_tcp)
 
+        #pt_0 = self.cset.constraints['plane_0']
+        #print(f"TCP at \{self.T_tcp}")
+        #print(f"Object at at \n{self.T_object2base}")
+        #print(f"pt_0 :\n{pt_0}")
+
+
+
+
 
         sim, active_constraint = self.cset.id_constraint(self.T_object2base, self.f_base)
 
@@ -167,20 +177,18 @@ class Controller():
         print("Shutting down controller")
 
 
-def start_node(constraint_set, online_control):
+def start_node(task, online_control):
     rospy.init_node('contact_observer')
-    controller = Controller(constraint_set = constraint_set, online_control = online_control )
+    Controller(task, online_control = online_control )
     rospy.sleep(1e-1)
     rospy.spin()
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument("--cset", default="contact_monitoring/data/cable_constraint.pickle", help="path to saved constraint set")
+    parser.add_argument("--task", default='rake', help="cable or rake")
     parser.add_argument("--ctrl", default=False, action='store_true',
                         help="Connect for the online control")
     args = parser.parse_args()
-    
-    cset = ConstraintSet(file_path = args.cset) if args.cset else None
 
-    start_node(cset, args.ctrl)
+    start_node(args.task, args.ctrl)
 
