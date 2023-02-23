@@ -46,7 +46,7 @@ class Constraint():
         args = dict(x0=x0, lbx=lbx, ubx=ubx, p=None, lbg=-np.inf, ubg=np.zeros(len(ineq_constraints)))
 
         prob = dict(f=loss, x=x, g=ca.vertcat(*ineq_constraints))
-        solver = ca.nlpsol('solver', 'ipopt', prob, {'ipopt.print_level':0})
+        solver = ca.nlpsol('solver', 'ipopt', prob, {'ipopt.print_level':5})
 
         # solve, print and return
         sol = solver(x0 = x0, lbx = lbx, ubx = ubx)
@@ -167,7 +167,7 @@ class LineOnSurfaceConstraint(Constraint):
 
         return ca.vertcat(misalign,displace)
 
-class RakeConstraint(Constraint):
+class RakeConstraint_1pt(Constraint):
     def __init__(self):
         params_init = {'pt': np.array([0.1, 0, 0]),  # first contact point in the object frame, which changes wrt 'x'
                        # second contact point in the object frame, which changes wrt 'x'
@@ -189,35 +189,8 @@ class RakeConstraint(Constraint):
 
 
 
-class RakeConstraint2(Constraint):
-    def __init__(self):
-        params_init = {'pt_0': np.array([0.01, 0, 0]),  # first contact point in the object frame, which changes wrt 'x'
-                       'pt_1': np.array([-0.01, 0, 0]),# second contact point in the object frame, which changes wrt 'x'
-                       'plane_normal': np.array([0, 1, 0]),
-                       'd': np.array([1])}  # resting position of the point contact in world coordinates
 
-        Constraint.__init__(self, params_init)
-
-    def regularization(self):
-        return 0.001*(ca.fabs(ca.norm_2(self.params['plane_normal']) - 1) +
-                      ca.norm_2(self.params['pt_0']) +
-                      ca.norm_2(self.params['pt_1']) +
-                      ca.norm_2(self.params['pt_0']-self.params['pt_1'])-0.02)
-        # length of norm is one
-
-    def violation(self, T):
-        x_pt0 = transform_pt(T, self.params['pt_0'])
-        x_pt1 = transform_pt(T, self.params['pt_1'])
-        plane_normal = self.params['plane_normal'] / ca.norm_2(self.params['plane_normal'])
-        delta_pt0 = ca.fabs(ca.dot(x_pt0, plane_normal) - self.params['d'])
-        delta_pt1 = ca.fabs(ca.dot(x_pt1, plane_normal) - self.params['d'])
-        #delta_x =   ca.fabs(ca.dot((x_pt0 - x_pt1), plane_normal))
-        #return ca.vertcat(delta_pt0+delta_x, delta_pt1+delta_x)
-        return ca.vertcat(delta_pt0, delta_pt1)
-
-
-
-class RakeConstraint3(Constraint):
+class RakeConstraint_2pt(Constraint):
     def __init__(self):
         params_init = {'pt_0': np.array([0.01, 0, 0]),  # first contact point in the object frame, which changes wrt 'x'
                        'pt_1': np.array([-0.01, 0, 0]),# second contact point in the object frame, which changes wrt 'x'
@@ -243,29 +216,32 @@ class RakeConstraint3(Constraint):
         return ca.vertcat(delta_0 + delta_x, delta_1 + delta_x)
 
 
-class RakeConstraint_pt1(Constraint):
-    # a point on the rigidly held object is fixed in world coordinates
-    def __init__(self, params):
-        pt_1_init = np.copy(params['pt'])
-        pt_1_init[0] += 0.02
 
-        params_init = {'pt_1': pt_1_init}  # resting position of the point contact in world coordinates
-        self.pt_0 = params['pt']
-        self.plane_normal = params['plane_normal']
-        self.d = params['d']
+
+
+class RakeConstraint_hinge(Constraint):
+    def __init__(self):
+        params_init = {'pt_0': np.array([0.01, 0, 0]),  # first contact point in the object frame, which changes wrt 'x'
+                       'pt_1': np.array([-0.01, 0, 0]),# second contact point in the object frame, which changes wrt 'x'
+                       'rest_pt_0': np.array([1, 0, 0]),
+                       'rest_pt_1': np.array([-1, 0, 0]),
+                       }  # resting position of the point contact in world coordinates
 
         Constraint.__init__(self, params_init)
 
     def regularization(self):
-        return ca.fabs(ca.norm_2(self.pt_0 - self.params['pt_1']) - .02)
+        return 0.01*(
+                    ca.norm_2(self.params['pt_0']) +
+                      ca.norm_2(self.params['pt_1']) +
+                      ca.fabs(ca.norm_2(self.params['pt_0']-self.params['pt_1'])-0.2))
         # length of norm is one
 
     def violation(self, T):
-        x_pt_0 = transform_pt(T, self.pt_0)
-        x_pt_1 = transform_pt(T, self.params['pt_1'])
-        delta = ca.dot(self.plane_normal, (x_pt_0-x_pt_1))
-        return ca.vertcat(delta, delta)
-        #return ca.vertcat(delta_ptpt, delta_ptpt)
+        x_pt0 = transform_pt(T, self.params['pt_0'])
+        x_pt1 = transform_pt(T, self.params['pt_1'])
+        delta_0 = ca.norm_2(self.params['rest_pt_0'] - x_pt0)
+        delta_1 = ca.norm_2(self.params['rest_pt_1'] - x_pt1)
+        return ca.vertcat(delta_0, delta_1)
 
 class ConstraintSet():
     def __init__(self, file_path = None):
