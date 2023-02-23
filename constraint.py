@@ -76,9 +76,15 @@ class Constraint():
         # IN: T is a transformation matrix for pose
         # IN: f is the numerical value for measured force
         x = self.tmat_to_pose(T)
+        #print(f'in get_sim linear val: {self.linear} with type {type(self)}')
         if self.linear:
             f = f[:3]
-        return ca.norm_2(ca.SX(f)-self.jac_fn(x).T@(ca.SX(f).T@self.jac_pinv_fn(x)))
+        #print(f'jacobian: {self.jac_fn(x)}')
+        #print(f'f: {ca.SX(f).shape}') 6,1
+        #print(f'jac: {self.jac_fn(x).shape}') 1,6
+        #print(f'pinv: {self.jac_pinv_fn(x).shape}') 6,1
+        #return ca.norm_2(ca.SX(f)-self.jac_fn(x).T@(ca.SX(f).T@self.jac_pinv_fn(x)))
+        return ca.norm_2(ca.SX(f)-self.jac_pinv_fn(x)@(self.jac_fn(x))@ca.SX(f))
 
     def pose_to_tmat(self, x): # x is the pose representation
         if self.linear:
@@ -305,10 +311,10 @@ class ConstraintSet():
         self.force_buffer.append(np.linalg.norm(f))
         for name, constr in self.constraints.items():
             self.sim_score[name] = constr.get_similarity(x, f)
-            if name == 'front_pivot': print(constr.jac_fn(x[:3,-1]))
+            #if name != 'free_space': print(f'{name}: {constr.jac_fn(x[:3,-1])}')
             self.vio[name] = constr.violation(x)
 
-        #print(f"Sim score: {self.sim_score}")
+        print(f"Sim score: {self.sim_score}")
         if (any(it<threshold for it in self.force_buffer)): #or (all(itr>tol_violation for itr in self.vio.values())):
             active_con = 'free_space'
         else:

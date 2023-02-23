@@ -74,13 +74,7 @@ class Controller():
 
     def objectpose_process(self):
         self.T_tcp2base = self.T_tcp
-        print("self.T_object2tcp")
-        print(self.T_object2tcp)
-        print('TCP')
-        print(self.T_tcp2base)
         self.T_object2base = self.T_tcp2base @ self.T_object2tcp
-        print('obj2base')
-        print(self.T_object2base)
 
     def force_callback(self, msg):
         try:
@@ -143,6 +137,7 @@ class Controller():
         #self.pos_tcp2base = self.T_tcp2base[:3,-1]
         #self.pos_object2base = self.T_object2base[:3,-1]
         self.f_base = transform_force(self.T_tcp, self.f_tcp)
+
 
         sim, active_constraint = self.cset.id_constraint(self.T_object2base, self.f_base)
 
