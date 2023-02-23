@@ -92,7 +92,7 @@
       <breakpoints>
         <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
           <url>file://$PROJECT_DIR$/controller.py</url>
-          <line>132</line>
+          <line>125</line>
           <option name="timeStamp" value="1" />
         </line-breakpoint>
       </breakpoints>

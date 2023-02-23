@@ -98,22 +98,22 @@ def plot_x_pt_inX(L_pt, X=None, plane=None):
     #set_axes_equal(ax)
 
     if type(X) is not type(None):
-        for T in X:
+        for T_object2base in X:
             for i, pt in enumerate(L_pt):
-                point = (T @ np.append(pt,0).T)[:3]
-                ax.scatter(point[0], point[1], point[2], color=colors[i])
+                t_point2base = (T_object2base @ np.append(pt,1).T)[:3]
+                ax.scatter(t_point2base[0], t_point2base[1], t_point2base[2], color=colors[i])
     else:
 
         for pts in L_pt:
-            for i, point in enumerate(pts):
-                ax.scatter(point[0], point[1], point[2], color=colors[i])
+            for i, t_point2base in enumerate(pts):
+                ax.scatter(t_point2base[0], t_point2base[1], t_point2base[2], color=colors[i])
 
     if type(plane) is not type(None):
         a, b, c = list(plane[0])
         d = plane[1]
         # Define x, y range
-        x_range = np.linspace(-1, 1, 20)
-        y_range = np.linspace(-1, 1, 20)
+        x_range = np.linspace(-.6, -.2, 20)
+        y_range = np.linspace(-.6, -.2, 20)
         x, y = np.meshgrid(x_range, y_range)
 
         # Solve for z using plane equation
