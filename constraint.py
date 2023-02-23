@@ -300,42 +300,29 @@ class ConstraintSet():
 
     def id_constraint(self, x, f):
         # identify which constraint is most closely matching the current force
-
-        # identify which constraint is most closely matching the current force
-        threshold = 6
+        threshold = 3
         tol_violation = 0.5  # to be defined
-        tol_sim = 0.4  # to be better defined
+        tol_sim = 2.0  # to be better defined
         self.force_buffer.append(np.linalg.norm(f))
         for name, constr in self.constraints.items():
             self.sim_score[name] = constr.get_similarity(x, f)
             #self.jac[name] = constr.jac_fn(x[:3,-1])
             self.vio[name] = constr.violation(x)
-        active_con = min(self.sim_score, key=lambda  y: self.sim_score(y))
-        self.con_buffer.append(active_con)
 
-<<<<<<< HEAD
-
+        #print(f"Sim score: {self.sim_score}")
         if (any(it<threshold for it in self.force_buffer)) or (all(itr>tol_violation for itr in self.vio.values())):
-            print("Free-space")
-            return constraints['free_space']
-        elif self.sim_score[self.con_buffer[1]] < self.sim_score[self.con_buffer[0]] -tol_violation:
-            print(f"Sim score: {self.sim_score}")
-            return self.sim_score, self.constraints[self.con_buffer[1]]
-        else:
-            print(f"Sim score: {self.sim_score}")
-            return self.sim_score, self.constraints[self.con_buffer[0]]
-
-
-
-=======
-        if (any(it<threshold for it in self.force_buffer)) or (all(itr>tol for itr in self.vio.values())):
             #print("Free-space")
             return self.sim_score, self.constraints['free_space']
         else:
-            #print(f"Sim score: {self.sim_score}")
-            active_con = min(self.sim_score, key=lambda y: self.sim_score[y])
-            return self.sim_score, self.constraints[active_con]
->>>>>>> 7b0f9d090ab2c1e33d04b922073eaa1c5c7091e6
+            active_con = min(self.sim_score, key=lambda  y: self.sim_score[y])
+            self.con_buffer.append(active_con)
+            if self.sim_score[self.con_buffer[1]] < self.sim_score[self.con_buffer[0]] - tol_violation:
+                print(f'New constraint: {self.con_buffer[1]}')
+                return self.sim_score, self.constraints[self.con_buffer[1]]
+            else:
+                #print(f"Sim score: {self.sim_score}")
+                return self.sim_score, self.constraints[self.con_buffer[0]]
+
 
 
 if __name__ == "__main__":
