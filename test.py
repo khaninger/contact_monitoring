@@ -6,12 +6,39 @@ from .constraint import *
 
 def cable_fit():
     for i in range(3):
-            ind = i+1
-            pts, _, _ = data(index=ind, segment=True, data_name='plug').load(pose=True, kp_delta_th=0.005)
-            constraint = CableConstraint()
-            constraint.fit(pts[1], h_inf=True)
-            print(
-            f"** Ground truth **\nradius_1:\n: {0.28}\nrest_pt:\n: {np.array([-0.31187662, -0.36479221, -0.03707742])}")
+        ind = i+1
+        pts, _, _ = data(index=ind, segment=True, data_name='plug').load(pose=True, kp_delta_th=0.005)
+        constraint = CableConstraint()
+        constraint.fit(pts[1], h_inf=True)
+        print(
+        f"** Ground truth **\nradius_1:\n: {0.28}\nrest_pt:\n: {np.array([-0.31187662, -0.36479221, -0.03707742])}")
+
+
+
+def cable_fit_all():
+    data_set = []
+    for i in range(3):
+        ind = i+1
+        pts, _, _ = data(index=ind, segment=True, data_name='plug').load(pose=True, kp_delta_th=0.005)
+        pts_thread, _, _ = data(index=ind, segment=True, data_name='plug_threading').load(pose=True, kp_delta_th=0.005)
+        data_set.append(pts[1])
+        data_set.append(pts_thread[1])
+    data_set = np.vstack(data_set)
+    constraint = CableConstraint()
+    constraint.fit(data_set, h_inf=True)
+    print(
+    f"** Ground truth **\nradius_1:\n: {0.28}\nrest_pt:\n: {np.array([-0.31187662, -0.36479221, -0.03707742])}")
+
+    data_set = []
+    for i in range(3):
+        ind = i + 1
+        pts_thread, _, _ = data(index=ind, segment=True, data_name='plug_threading').load(pose=True, kp_delta_th=0.005)
+        data_set.append(pts_thread[2])
+    data_set = np.vstack(data_set)
+    constraint = CableConstraint()
+    constraint.fit(data_set, h_inf=True)
+    print(
+        f"** Ground truth **\nradius_1:\n: {0.14}\nrest_pt:\n: {np.array([-0.22657112, -0.47936426, -0.0320753])}")
 
 def rake_fit():
     pts, _, _ = data(index=1, segment=True, data_name='rake').load(pose=True, kp_delta_th=0.005)
@@ -26,12 +53,24 @@ def set_params():
     print(const.jac_fn(test))
 
 def save_cset_cable():
-    #load threading data
-    dataset, segments, time = data(index=3, segment=True, data_name="plug").load(pose=True, kp_delta_th=0.005)
-    cable_fixture = dataset[1]
-    dataset, segments, time = data(index=1, segment=True, data_name="plug_threading").load(pose=True, kp_delta_th=0.005)
-    front_pivot = dataset[2]
+    #load all cable data and concatenate
+    cable_fixture = []
+    free_space = []
+    front_pivot = []
+    for i in range(3):
+        ind = i + 1
+        pts, _, _ = data(index=ind, segment=True, data_name='plug').load(pose=True, kp_delta_th=0.005)
+        pts_thread, _, _ = data(index=ind, segment=True, data_name='plug_threading').load(pose=True, kp_delta_th=0.005)
+        free_space.append(pts[0])
+        free_space.append(pts_thread[0])
+        cable_fixture.append(pts[1])
+        cable_fixture.append(pts_thread[1])
+        front_pivot.append(pts_thread[2])
 
+
+    front_pivot = np.vstack(front_pivot)
+    cable_fixture = np.vstack(cable_fixture)
+    free_space = np.vstack(free_space)
 
     names = ['free_space', 'cable_fixture', 'front_pivot']
 
@@ -39,7 +78,7 @@ def save_cset_cable():
                    CableConstraint,
                    CableConstraint]
 
-    datasets = [dataset[0], cable_fixture, front_pivot]
+    datasets = [free_space, cable_fixture, front_pivot]
 
     c_set = ConstraintSet()
     c_set.fit(names=names, constraints=constraints, datasets=datasets)
@@ -117,6 +156,7 @@ def test_rake_fit_two_pt():
 if __name__ == "__main__":
     print("** Starting test(s) **")
     #cable_fit()
+    #cable_fit_all()
     save_cset_cable()
     #test_rake_fit_one_pt()
     #test_rake_fit_two_pt()
