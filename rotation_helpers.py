@@ -56,6 +56,10 @@ def rotvec_to_rotation(vec):
     rot[2,2] =  kz*kz*vp   +cp
     return rot
 
+def rotation_to_quat(R):
+    r = rotation_to_rotvec(R)
+    return rotvec_to_quat(r)
+
 def rotation_to_rotvec(R):
     # http://scipp.ucsc.edu/~haber/ph216/rotation_12.pdf, (20), (27), (32)
     # also see scipy https://github.com/scipy/scipy/blob/a4bed793057026b86dc8fb12a5fd69813da8a728/scipy/spatial/transform/_rotation.pyx#L879

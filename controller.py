@@ -8,7 +8,7 @@ import numpy as np
 import pickle
 
 import rospy
-from geometry_msgs.msg import WrenchStamped, Twist
+from geometry_msgs.msg import WrenchStamped, PoseStamped, Twist
 from sensor_msgs.msg import JointState
 from controller_manager_msgs.srv import ListControllers, LoadController, SwitchController
 import tf
@@ -44,6 +44,8 @@ class Controller():
         self.force_sub = rospy.Subscriber('wrench', WrenchStamped,
                                           self.force_callback, queue_size=1)
         self.vel_pub = rospy.Publisher('twist_controller/command', Twist, queue_size=1)
+        self.wrench_pub = rospy.Publisher('target_wrench', WrenchStamped, queue_size=1)
+        self.pose_pub = rospy.Publisher('target_frame', PoseStamped, queue_size=1)
         self.sim_pub = rospy.Publisher('contact_mode', JointState, queue_size=1)
 
         rospy.on_shutdown(self.shutdown)
@@ -98,17 +100,60 @@ class Controller():
         rot_vel = np.zeros(3)
         return np.hstack((lin_vel, rot_vel))
 
-    def control(self, active_constraint):
-        # TODO something clever with the constraint jacobians?
-        #print(f'Active constraint {active_constraint}') # final pose {active.params["T_final"]}')
-        vel_cmd = self.interpolate(active_constraint.params['T_final'])#self.interpolate(np.eye(4))
-        vel_cmd[:3] *= p['vel_max'][0] # respect the speed limit
-        vel_cmd = np.clip(vel_cmd,
-                          self.vel_cmd_prev-p['acc_max']/p['hz'],
-                          self.vel_cmd_prev+p['acc_max']/p['hz'])
-        self.build_and_send_twist(vel_cmd)
 
-    def build_and_send_twist(self, vel_cmd = np.zeros(6), kill_pub = False):
+    def control(self, active_constraint):
+        #print(f'Active constraint {active_constraint}') # final pose {active.params["T_final"]}')
+
+        #vel_cmd = self.interpolate(active_constraint.params['T_final'])#self.interpolate(np.eye(4))
+        #vel_cmd[:3] *= p['vel_max'][0] # respect the speed limit
+        #vel_cmd = np.clip(vel_cmd,
+        #                  self.vel_cmd_prev-p['acc_max']/p['hz'],
+        #                  self.vel_cmd_prev+p['acc_max']/p['hz'])
+        #self.build_and_send_twist(vel_cmd)
+
+        #print(active_constraint.params['T_final'])
+        
+        tcp_cmd = active_constraint.params['T_final']@invert_TransMat(self.T_object2tcp)
+
+        self.build_and_send_pose(tcp_cmd)
+        self.build_and_send_wrench([0, 0, 0, 0, 0, 0])
+
+
+    def build_and_send_pose(self, T_cmd):
+        msg = PoseStamped()
+        msg.header.stamp = rospy.Time.now()
+        msg.header.frame_id = 'base'
+
+        msg.pose.position.x = T_cmd[0,3]
+        msg.pose.position.y = T_cmd[1,3]
+        msg.pose.position.z = T_cmd[2,3]
+
+        quat = rotation_to_quat(T_cmd[:3, :3])
+        msg.pose.orientation.w = quat[0]
+        msg.pose.orientation.x = quat[1]
+        msg.pose.orientation.y = quat[2]
+        msg.pose.orientation.z = quat[3]
+
+        if not rospy.is_shutdown() and hasattr(self, 'pose_pub'):
+            self.pose_pub.publish(msg)
+            return True
+
+
+    def build_and_send_wrench(self, wrench_cmd = np.zeros(6)):
+        msg = WrenchStamped()
+        msg.header.stamp = rospy.Time.now()
+        msg.wrench.force.x = wrench_cmd[0]
+        msg.wrench.force.y = wrench_cmd[1]
+        msg.wrench.force.z = wrench_cmd[2]
+        msg.wrench.torque.x = wrench_cmd[3]
+        msg.wrench.torque.y = wrench_cmd[4]
+        msg.wrench.torque.z = wrench_cmd[5]
+
+        if not rospy.is_shutdown() and hasattr(self, 'wrench_pub'):
+            self.wrench_pub.publish(msg)
+            return True
+
+    def build_and_send_twist(self, vel_cmd = np.zeros(6)):
         # Builds a twist message out of the 6x1 vel_cmd, and sends this on vel_pub
 
         # Limit the velocity command
@@ -134,20 +179,8 @@ class Controller():
         self.objectpose_process()
         # The transformation of force frame is from the MS Thesis of Bo Ho
         # SIX-DEGREE-OF-FREEDOM ACTIVE REAL-TIME FORCE CONTROL OF MANIPULATOR, pg. 63
-        #self.R_object2tcp = self.T_object2tcp[:3, :3]
-        #self.R_tcp2object = self.R_object2tcp.T
-        #self.pos_tcp2base = self.T_tcp2base[:3,-1]
-        #self.pos_object2base = self.T_object2base[:3,-1]
+
         self.f_base = transform_force(self.T_tcp, self.f_tcp)
-
-        #pt_0 = self.cset.constraints['plane_0']
-        #print(f"TCP at \{self.T_tcp}")
-        #print(f"Object at at \n{self.T_object2base}")
-        #print(f"pt_0 :\n{pt_0}")
-
-
-
-
 
         sim, active_constraint = self.cset.id_constraint(self.T_object2base, self.f_base)
 
@@ -168,6 +201,8 @@ class Controller():
         res = self.build_and_send_twist(vel_cmd = np.zeros(6))
         del self.vel_pub # This is needed because callbacks from force might be queued up
         del self.sim_pub
+        del self.twist_pub
+        del self.pose_pub
         if res:
             print("Sent zero velocity command")
         else:
