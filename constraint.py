@@ -46,7 +46,7 @@ class Constraint():
         args = dict(x0=x0, lbx=lbx, ubx=ubx, p=None, lbg=-np.inf, ubg=np.zeros(len(ineq_constraints)))
 
         prob = dict(f=loss, x=x, g=ca.vertcat(*ineq_constraints))
-        solver = ca.nlpsol('solver', 'ipopt', prob, {'ipopt.print_level':2})
+        solver = ca.nlpsol('solver', 'ipopt', prob, {'ipopt.print_level':0})
 
         # solve, print and return
         sol = solver(x0 = x0, lbx = lbx, ubx = ubx)
@@ -130,7 +130,7 @@ class CableConstraint(Constraint):
         self.linear = True  # flag variable to switch between full jacobian and linear one
 
     def regularization(self):
-        return 0.0001 * self.params['radius_1']
+        return 0.001 * self.params['radius_1']
 
     def violation(self, T):
         x = self.tmat_to_pose(T)

@@ -25,9 +25,15 @@ def set_params():
     test = np.array([0.01,1.01,0.01,0.01,-0.01,0.02])
     print(const.jac_fn(test))
 
-def save_cset_cable():
+def save_cset():
+<<<<<<< HEAD
+    # plug_threading
+    # load threading data
+    dataset, segments, time = data(index=2, segment=True, data_name="plug_threading").load(pose=True, kp_delta_th=0.005)
+=======
     #load threading data
-    dataset, segments, time = data(index=3, segment=True, data_name="plug").load(pose=True, kp_delta_th=0.005)
+    dataset, segments, time = data(index=1, segment=True, data_name="plug_threading").load(pose=True, kp_delta_th=0.005)
+>>>>>>> 178a7c6bbcecc27d9968a0866333378118861a73
     cable_fixture = dataset[1]
     dataset, segments, time = data(index=1, segment=True, data_name="plug_threading").load(pose=True, kp_delta_th=0.005)
     front_pivot = dataset[2]
@@ -49,30 +55,6 @@ def save_cset_cable():
     c_set.load(file_path=path)
     print(c_set.constraints)
 
-
-
-def save_cset_rake():
-    #load threading data
-    dataset, segments, time = data(index=1, segment=True, data_name="sexy_rake").load(pose=True, kp_delta_th=0.003)
-    rake_on_plane = dataset[1]
-    c_set = RakeConstraint3()
-    c_set.fit(data=rake_on_plane, h_inf=True)
-
-
-    names = ['free_space', 'plane_0']
-
-    constraints = [FreeSpace,
-                   RakeConstraint3]
-
-    datasets = [dataset[0], dataset[1]]
-
-    c_set = ConstraintSet()
-    c_set.fit(names=names, constraints=constraints, datasets=datasets)
-
-    path = os.getcwd() + "/contact_monitoring/data/rake_constraint.pickle"
-    c_set.save(file_path=path)
-    c_set.load(file_path=path)
-    print(c_set.constraints)
 
 def test_similarity():
     path = os.getcwd() + "/contact_monitoring/data/cable_constraint.pickle"
@@ -117,13 +99,13 @@ def test_rake_fit_two_pt():
 if __name__ == "__main__":
     print("** Starting test(s) **")
     #cable_fit()
-    save_cset_cable()
     #test_rake_fit_one_pt()
-    #test_rake_fit_two_pt()
+    test_rake_fit_two_pt()
     #set_params()
     #save_cset()
     #test_similarity()
-    #save_cset_rake()
+
+
 
 
 
