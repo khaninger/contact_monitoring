@@ -313,7 +313,7 @@ class ConstraintSet():
         active_con = min(self.sim_score, key=lambda  y: self.sim_score(y))
         self.con_buffer.append(active_con)
 
-<<<<<<< HEAD
+
 
         if (any(it<threshold for it in self.force_buffer)) or (all(itr>tol_violation for itr in self.vio.values())):
             print("Free-space")
