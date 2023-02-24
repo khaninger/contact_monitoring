@@ -19,6 +19,18 @@ def invert_TransMat(T_a2b):
     T_b2a[0:3, 3] = t_b2a
     return T_b2a
 
+def transform_force(T, f):
+    # IN: T should be the transformation matrix for the pose of TCP frame in base frame
+    # IN: f is force in TCP frame
+    pos = T[:3,-1]
+    R = T[:3, :3]
+    cross_product = np.array([[0,      -pos[-1], pos[1]],
+                              [pos[-1], 0,      -pos[0]],
+                              [-pos[1], pos[0],  0]])
+    force_transform  = np.hstack([np.vstack([R,cross_product@R]),
+                                  np.vstack([np.zeros((3,3)), R])])
+    return force_transform@f # returns the force in base frame
+
 #### Rotation vectors ####
 def rotvec_to_rotation(vec):
     ty = ca.SX if type(vec) is ca.SX else ca.DM
@@ -43,6 +55,10 @@ def rotvec_to_rotation(vec):
     rot[2,1] =  ky*kz*vp+kx*sp
     rot[2,2] =  kz*kz*vp   +cp
     return rot
+
+def rotation_to_quat(R):
+    r = rotation_to_rotvec(R)
+    return rotvec_to_quat(r)
 
 def rotation_to_rotvec(R):
     # http://scipp.ucsc.edu/~haber/ph216/rotation_12.pdf, (20), (27), (32)
