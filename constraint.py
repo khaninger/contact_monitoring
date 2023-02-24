@@ -293,11 +293,14 @@ class ConstraintSet():
         # IN: the constraint to get a successor of
         constraints_list = list(self.constraints.values())
         index = constraints_list.index(constraint)+1
-        return constraints_list[index] if index <= len(constraints_list) else None
+        if index < len(constraints_list):
+            return constraints_list[index]
+        else:
+            return None
 
     def id_constraint(self, x, f):
         # identify which constraint is most closely matching the current force
-        threshold = 2.5   # 6 for cable, 2.5 for rake
+        threshold = 6   # 6 for cable, 2.5 for rake
         tol_violation = 0.5  # to be defined
         tol_sim = 2.0  # to be better defined
         self.force_buffer.append(np.linalg.norm(f))
@@ -308,7 +311,7 @@ class ConstraintSet():
 
 
         #print(f"Sim score: {self.sim_score}")
-        if (any(it<threshold for it in self.force_buffer)): #or (all(itr>tol_violation for itr in self.vio.values())):
+        if (any(it<threshold for it in self.force_buffer)): # or (all(itr>tol_violation for itr in self.vio.values())):
             active_con = 'free_space'
             #print(self.force_buffer)
 

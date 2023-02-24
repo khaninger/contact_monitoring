@@ -27,7 +27,7 @@ p = {'vel_max': np.array([*[0.02]*3, *[0.001]*3]), # maximum velocity for lin, a
 
      'ctrl_type': 'cartesian_compliance_controller',  # twist_controller, cartesian_compliance_controller
      'speed_slider': 15.0/100.0, # Initial speed override value, as fraction
-     'contact_magnitude': 4, # Force to apply in the contact direction
+     'contact_magnitude': 12, # Force to apply in the contact direction, 4 for rake
      }
 
 class Controller():
@@ -242,7 +242,7 @@ def start_node(task, online_control):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument("--task", default='rake', help="cable or rake")
+    parser.add_argument("--task", default='cable', help="cable or rake")
     parser.add_argument("--ctrl", default=False, action='store_true',
                         help="Connect for the online control")
     args = parser.parse_args()
