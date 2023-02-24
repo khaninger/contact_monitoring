@@ -24,8 +24,10 @@ p = {'vel_max': np.array([*[0.02]*3, *[0.001]*3]), # maximum velocity for lin, a
      'acc_max': 0.1,       # maximum linear acceleration
      'hz':500,              # sample rate of controller
      'stop_distance': 0.01, # meters from goal pose to stop, linear
+
      'ctrl_type': 'cartesian_compliance_controller',  # twist_controller, cartesian_compliance_controller
      'speed_slider': 15.0/100.0, # Initial speed override value, as fraction
+     'contact_magnitude': 4, # Force to apply in the contact direction
      }
 
 class Controller():
@@ -113,19 +115,20 @@ class Controller():
     def control(self, active_constraint):
         #print(f'Active constraint {active_constraint}') # final pose {active.params["T_final"]}')
 
-        #vel_cmd = self.interpolate(active_constraint.params['T_final'])#self.interpolate(np.eye(4))
+        #vel_cmd = self.interpolate(active_constraint.params['T_final'])
         #vel_cmd[:3] *= p['vel_max'][0] # respect the speed limit
-        #vel_cmd = np.clip(vel_cmd,
-        #                  self.vel_cmd_prev-p['acc_max']/p['hz'],
-        #                  self.vel_cmd_prev+p['acc_max']/p['hz'])
+        #vel_cmd = np.clip(vel_cmd, self.vel_cmd_prev-p['acc_max']/p['hz'], self.vel_cmd_prev+p['acc_max']/p['hz'])
         #self.build_and_send_twist(vel_cmd)
 
-        #print(active_constraint.params['T_final'])
-
         tcp_cmd = active_constraint.params['T_final']@invert_TransMat(self.T_object2tcp)
-        #tcp_cmd = self.T_tcp
         self.build_and_send_pose(tcp_cmd)
-        self.build_and_send_wrench([0, 0, 0, 0, 0, 0])
+
+        wrench_cmd = active_constraint.calc_constraint_wrench(self.T_object2base, p['contact_magnitude'])
+        next_constraint = self.cset.get_next(active_constraint)
+        if next_constraint:
+            wrench_cmd += next_constraint.calc_constraint_wrench(self.T_object2base, p['contact_magnitude'])
+        self.build_and_send_wrench(wrench_cmd)
+        #self.build_and_send_wrench([0, 0, 0, 0, 0, 0])
 
     def build_and_send_pose(self, T_cmd):
         msg = PoseStamped()
@@ -187,9 +190,19 @@ class Controller():
         # The transformation of force frame is from the MS Thesis of Bo Ho
         # SIX-DEGREE-OF-FREEDOM ACTIVE REAL-TIME FORCE CONTROL OF MANIPULATOR, pg. 63
 
-        self.f_base = transform_force(self.T_tcp, self.f_tcp)
+        # Building a transformation with the orientation of TCP and position of object
+        T_obj_adjust = np.eye(4)
+        T_obj_adjust[:3,:3] = self.T_tcp[:3,:3]
+        T_obj_adjust[3,:3] = self.T_object2base[3,:3]
 
-        sim, active_constraint = self.cset.id_constraint(self.T_object2base, self.f_base)
+        # Force at origin of object, with the orientation of base
+        self.f_constraint = transform_force(T_obj_adjust, self.f_tcp)
+        f_base = transform_force(self.T_tcp, self.f_tcp)
+
+        #print(f'Real  forces: {f_base.T}')
+        #print(f'Const forces: {self.f_constraint.T}')
+
+        sim, active_constraint = self.cset.id_constraint(self.T_object2base, self.f_constraint)
 
         if active_constraint is not self.active_constraint_prev:
             print(f'Changing constraint to {active_constraint}')

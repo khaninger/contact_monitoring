@@ -60,7 +60,7 @@ class Constraint():
 
     def violation(self, T): # constraint violation for a transformation matrix T
         raise NotImplementedError
-        
+
     def get_jac(self): # construct the jacobian and pinv
         x_tcp_sym = ca.SX.sym("x_tcp_sym",3+3*(not self.linear))
         T_tcp_sym = self.pose_to_tmat(x_tcp_sym)
@@ -71,6 +71,16 @@ class Constraint():
         self.jac_fn = ca.Function('jac_fn', [x_tcp_sym], [self.jac])
         self.jac_pinv = ca.pinv(self.jac)
         self.jac_pinv_fn = ca.Function('jac_pinv_fn', [x_tcp_sym], [self.jac_pinv])
+
+    def calc_constraint_wrench(self, T, magnitude):
+        # IN: T is the pose of the object in transformation matrix
+        # IN: magniutude is the amount of force in that direction
+        contact_jac = self.jac_fn(self.tmat_to_pose(T))
+        wrench = ca.SX.zeros(6)
+        for row in range(contact_jac.shape[0]):
+            jac_element = contact_jac[row,:3]
+            wrench[:3] += magnitude*jac_element.T/ca.norm_2(jac_element)
+        return wrench
 
     def get_similarity(self, T, f):
         # IN: T is a transformation matrix for pose
@@ -89,17 +99,17 @@ class Constraint():
     def pose_to_tmat(self, x): # x is the pose representation
         if self.linear:
             x_aug = ca.vertcat(x, ca.DM.zeros(3))
-            T = rotvec_pose_to_tmat(x_aug)
+            T = xyz_pose_to_tmat(x_aug)
         else:
-            T = rotvec_pose_to_tmat(x)
+            T = xyz_pose_to_tmat(x)
         return T
-        
+
     def tmat_to_pose(self, T): # T is the transformation matrix
         if self.linear:
             return T[:3,-1]
         else:
-            return tmat_to_rotvec_pose(T)
-    
+            return tmat_to_xyz_pose(T)
+
     def save(self):
         return (type(self), self.params)
 
@@ -279,15 +289,21 @@ class ConstraintSet():
         save_dict = {name: self.constraints[name].save() for name in self.constraints.keys()}
         pickle.dump(save_dict, open(file_path, 'wb'))
 
+    def get_next(self, constraint):
+        # IN: the constraint to get a successor of
+        constraints_list = list(self.constraints.values())
+        index = constraints_list.index(constraint)+1
+        return constraints_list[index] if index <= len(constraints_list) else None
+
     def id_constraint(self, x, f):
         # identify which constraint is most closely matching the current force
-        threshold = 4   # 6 for cable
+        threshold = 2.5   # 6 for cable, 2.5 for rake
         tol_violation = 0.5  # to be defined
         tol_sim = 2.0  # to be better defined
-        self.force_buffer.append(np.linalg.norm(f[:3]))
+        self.force_buffer.append(np.linalg.norm(f))
         for name, constr in self.constraints.items():
             self.sim_score[name] = constr.get_similarity(x, f)
-            #if name == 'plane_0': print(f'{name}: {constr.jac_fn(constr.tmat_to_pose(x))}')
+            #if name != 'free_space': print(f'{name}: {constr.jac_fn(constr.tmat_to_pose(x))}')
             self.vio[name] = constr.violation(x)
 
         #print(f"Sim score: {self.sim_score}")
