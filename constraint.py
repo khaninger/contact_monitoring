@@ -46,7 +46,7 @@ class Constraint():
         args = dict(x0=x0, lbx=lbx, ubx=ubx, p=None, lbg=-np.inf, ubg=np.zeros(len(ineq_constraints)))
 
         prob = dict(f=loss, x=x, g=ca.vertcat(*ineq_constraints))
-        solver = ca.nlpsol('solver', 'ipopt', prob, {'ipopt.print_level':2})
+        solver = ca.nlpsol('solver', 'ipopt', prob, {'ipopt.print_level':5})
 
         # solve, print and return
         sol = solver(x0 = x0, lbx = lbx, ubx = ubx)
@@ -76,9 +76,15 @@ class Constraint():
         # IN: T is a transformation matrix for pose
         # IN: f is the numerical value for measured force
         x = self.tmat_to_pose(T)
+        #print(f'in get_sim linear val: {self.linear} with type {type(self)}')
         if self.linear:
             f = f[:3]
-        return ca.norm_2(ca.SX(f)-self.jac_fn(x).T@(ca.SX(f).T@self.jac_pinv_fn(x)))
+        #print(f'jacobian: {self.jac_fn(x)}')
+        #print(f'f: {ca.SX(f).shape}') 6,1
+        #print(f'jac: {self.jac_fn(x).shape}') 1,6
+        #print(f'pinv: {self.jac_pinv_fn(x).shape}') 6,1
+        #return ca.norm_2(ca.SX(f)-self.jac_fn(x).T@(ca.SX(f).T@self.jac_pinv_fn(x)))
+        return ca.norm_2(ca.SX(f)-self.jac_pinv_fn(x)@(self.jac_fn(x))@ca.SX(f))
 
     def pose_to_tmat(self, x): # x is the pose representation
         if self.linear:
@@ -130,7 +136,7 @@ class CableConstraint(Constraint):
         self.linear = True  # flag variable to switch between full jacobian and linear one
 
     def regularization(self):
-        return 0.0001 * self.params['radius_1']
+        return 0.001 * self.params['radius_1']
 
     def violation(self, T):
         x = self.tmat_to_pose(T)
@@ -161,7 +167,7 @@ class LineOnSurfaceConstraint(Constraint):
 
         return ca.vertcat(misalign,displace)
 
-class RakeConstraint(Constraint):
+class RakeConstraint_1pt(Constraint):
     def __init__(self):
         params_init = {'pt': np.array([0.1, 0, 0]),  # first contact point in the object frame, which changes wrt 'x'
                        # second contact point in the object frame, which changes wrt 'x'
@@ -183,35 +189,8 @@ class RakeConstraint(Constraint):
 
 
 
-class RakeConstraint2(Constraint):
-    def __init__(self):
-        params_init = {'pt_0': np.array([0.01, 0, 0]),  # first contact point in the object frame, which changes wrt 'x'
-                       'pt_1': np.array([-0.01, 0, 0]),# second contact point in the object frame, which changes wrt 'x'
-                       'plane_normal': np.array([0, 1, 0]),
-                       'd': np.array([1])}  # resting position of the point contact in world coordinates
 
-        Constraint.__init__(self, params_init)
-
-    def regularization(self):
-        return 0.001*(ca.fabs(ca.norm_2(self.params['plane_normal']) - 1) +
-                      ca.norm_2(self.params['pt_0']) +
-                      ca.norm_2(self.params['pt_1']) +
-                      ca.norm_2(self.params['pt_0']-self.params['pt_1'])-0.02)
-        # length of norm is one
-
-    def violation(self, T):
-        x_pt0 = transform_pt(T, self.params['pt_0'])
-        x_pt1 = transform_pt(T, self.params['pt_1'])
-        plane_normal = self.params['plane_normal'] / ca.norm_2(self.params['plane_normal'])
-        delta_pt0 = ca.fabs(ca.dot(x_pt0, plane_normal) - self.params['d'])
-        delta_pt1 = ca.fabs(ca.dot(x_pt1, plane_normal) - self.params['d'])
-        #delta_x =   ca.fabs(ca.dot((x_pt0 - x_pt1), plane_normal))
-        #return ca.vertcat(delta_pt0+delta_x, delta_pt1+delta_x)
-        return ca.vertcat(delta_pt0, delta_pt1)
-
-
-
-class RakeConstraint3(Constraint):
+class RakeConstraint_2pt(Constraint):
     def __init__(self):
         params_init = {'pt_0': np.array([0.01, 0, 0]),  # first contact point in the object frame, which changes wrt 'x'
                        'pt_1': np.array([-0.01, 0, 0]),# second contact point in the object frame, which changes wrt 'x'
@@ -237,29 +216,32 @@ class RakeConstraint3(Constraint):
         return ca.vertcat(delta_0 + delta_x, delta_1 + delta_x)
 
 
-class RakeConstraint_pt1(Constraint):
-    # a point on the rigidly held object is fixed in world coordinates
-    def __init__(self, params):
-        pt_1_init = np.copy(params['pt'])
-        pt_1_init[0] += 0.02
 
-        params_init = {'pt_1': pt_1_init}  # resting position of the point contact in world coordinates
-        self.pt_0 = params['pt']
-        self.plane_normal = params['plane_normal']
-        self.d = params['d']
+
+
+class RakeConstraint_hinge(Constraint):
+    def __init__(self):
+        params_init = {'pt_0': np.array([0.01, 0, 0]),  # first contact point in the object frame, which changes wrt 'x'
+                       'pt_1': np.array([-0.01, 0, 0]),# second contact point in the object frame, which changes wrt 'x'
+                       'rest_pt_0': np.array([1, 0, 0]),
+                       'rest_pt_1': np.array([-1, 0, 0]),
+                       }  # resting position of the point contact in world coordinates
 
         Constraint.__init__(self, params_init)
 
     def regularization(self):
-        return ca.fabs(ca.norm_2(self.pt_0 - self.params['pt_1']) - .02)
+        return 0.01*(
+                    ca.norm_2(self.params['pt_0']) +
+                      ca.norm_2(self.params['pt_1']) +
+                      ca.fabs(ca.norm_2(self.params['pt_0']-self.params['pt_1'])-0.2))
         # length of norm is one
 
     def violation(self, T):
-        x_pt_0 = transform_pt(T, self.pt_0)
-        x_pt_1 = transform_pt(T, self.params['pt_1'])
-        delta = ca.dot(self.plane_normal, (x_pt_0-x_pt_1))
-        return ca.vertcat(delta, delta)
-        #return ca.vertcat(delta_ptpt, delta_ptpt)
+        x_pt0 = transform_pt(T, self.params['pt_0'])
+        x_pt1 = transform_pt(T, self.params['pt_1'])
+        delta_0 = ca.norm_2(self.params['rest_pt_0'] - x_pt0)
+        delta_1 = ca.norm_2(self.params['rest_pt_1'] - x_pt1)
+        return ca.vertcat(delta_0, delta_1)
 
 class ConstraintSet():
     def __init__(self, file_path = None):
@@ -269,8 +251,7 @@ class ConstraintSet():
         self.jac = {}
         self.vio = {}
         self.force_buffer = deque(maxlen=8)
-        self.con_buffer = deque(maxlen=2)  # storing actual and previous constraint for smoothing
-
+        self.con_buffer = deque(maxlen=1)  # storing actual and previous constraint for smoothing
 
         if file_path:
             self.load(file_path)
@@ -300,19 +281,16 @@ class ConstraintSet():
 
     def id_constraint(self, x, f):
         # identify which constraint is most closely matching the current force
-
-        # identify which constraint is most closely matching the current force
-        threshold = 6
+        threshold = 4   # 6 for cable
         tol_violation = 0.5  # to be defined
-        tol_sim = 0.4  # to be better defined
-        self.force_buffer.append(np.linalg.norm(f))
+        tol_sim = 2.0  # to be better defined
+        self.force_buffer.append(np.linalg.norm(f[:3]))
         for name, constr in self.constraints.items():
             self.sim_score[name] = constr.get_similarity(x, f)
-            #self.jac[name] = constr.jac_fn(x[:3,-1])
+            #if name == 'plane_0': print(f'{name}: {constr.jac_fn(constr.tmat_to_pose(x))}')
             self.vio[name] = constr.violation(x)
-        active_con = min(self.sim_score, key=lambda  y: self.sim_score(y))
-        self.con_buffer.append(active_con)
 
+<<<<<<< HEAD
 
 
         if (any(it<threshold for it in self.force_buffer)) or (all(itr>tol_violation for itr in self.vio.values())):
@@ -321,21 +299,23 @@ class ConstraintSet():
         elif self.sim_score[self.con_buffer[1]] < self.sim_score[self.con_buffer[0]] -tol_violation:
             print(f"Sim score: {self.sim_score}")
             return self.sim_score, self.constraints[self.con_buffer[1]]
-        else:
-            print(f"Sim score: {self.sim_score}")
-            return self.sim_score, self.constraints[self.con_buffer[0]]
-
-
-
 =======
-        if (any(it<threshold for it in self.force_buffer)) or (all(itr>tol for itr in self.vio.values())):
-            #print("Free-space")
-            return self.sim_score, self.constraints['free_space']
+        #print(f"Sim score: {self.sim_score}")
+        if (any(it<threshold for it in self.force_buffer)): #or (all(itr>tol_violation for itr in self.vio.values())):
+            active_con = 'free_space'
+            #print(self.force_buffer)
+>>>>>>> 9f0d00258a4cb7f16bf6000a813d7d88f3cd685e
         else:
-            #print(f"Sim score: {self.sim_score}")
-            active_con = min(self.sim_score, key=lambda y: self.sim_score[y])
-            return self.sim_score, self.constraints[active_con]
->>>>>>> 7b0f9d090ab2c1e33d04b922073eaa1c5c7091e6
+            new_con = min(self.sim_score, key=lambda  y: self.sim_score[y])
+            if len(self.con_buffer) is 0 or self.sim_score[new_con] < self.sim_score[self.con_buffer[0]] - tol_violation: # We accept the new constraint because it's better
+                print(f'New constraint: {new_con}')
+                active_con = new_con
+                self.con_buffer.append(new_con)  # Save it for future comparison
+            else: # We reject the new constraint because its not better
+                #print(f"Sim score: {self.sim_score}")
+                active_con = self.con_buffer[0]
+        self.con_buffer.append(active_con)
+        return self.sim_score, self.constraints[active_con]
 
 
 if __name__ == "__main__":
