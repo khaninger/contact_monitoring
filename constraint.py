@@ -290,21 +290,12 @@ class ConstraintSet():
             #if name == 'plane_0': print(f'{name}: {constr.jac_fn(constr.tmat_to_pose(x))}')
             self.vio[name] = constr.violation(x)
 
-<<<<<<< HEAD
 
-
-        if (any(it<threshold for it in self.force_buffer)) or (all(itr>tol_violation for itr in self.vio.values())):
-            print("Free-space")
-            return constraints['free_space']
-        elif self.sim_score[self.con_buffer[1]] < self.sim_score[self.con_buffer[0]] -tol_violation:
-            print(f"Sim score: {self.sim_score}")
-            return self.sim_score, self.constraints[self.con_buffer[1]]
-=======
         #print(f"Sim score: {self.sim_score}")
         if (any(it<threshold for it in self.force_buffer)): #or (all(itr>tol_violation for itr in self.vio.values())):
             active_con = 'free_space'
             #print(self.force_buffer)
->>>>>>> 9f0d00258a4cb7f16bf6000a813d7d88f3cd685e
+
         else:
             new_con = min(self.sim_score, key=lambda  y: self.sim_score[y])
             if len(self.con_buffer) is 0 or self.sim_score[new_con] < self.sim_score[self.con_buffer[0]] - tol_violation: # We accept the new constraint because it's better

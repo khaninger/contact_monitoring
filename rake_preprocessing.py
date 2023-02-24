@@ -4,7 +4,7 @@ from sklearn import mixture
 from segmentation import segmentation
 
 
-f = pickle.load(open('data/video_sexy_rake_hinge_3.pickle', 'rb'))
+f = pickle.load(open('', 'rb'))
 f = np.array(f)
 print(f)
 f = f[:,:,:4]
