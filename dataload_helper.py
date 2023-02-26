@@ -16,6 +16,7 @@ class data():
         self.path = self.directory + str(index) + ".pickle"
         self.segment = segment
         self.index = index
+        self.clustered = clustered
 
     def load(self, pose=True, kp_delta_th=0.005):
         if os.path.isfile(self.path):
@@ -93,6 +94,18 @@ class data():
 
                 dataset = dataset_segmented
 
+            if False:#self.clustered:  # Throw away first and last 10 percent of clusters
+                dataset_segmented_10p = []
+                for data_s in dataset_segmented:
+                    index_10p = int(data_s.shape[0]/10)
+                    dataset_segmented_10p.append(data_s[index_10p:-index_10p])
+                print("Cut of data: Reduced size from Original segments of shape")
+                for data_s in dataset_segmented:
+                    print(f"shape: {data_s.shape}")
+                print("To new shapes:")
+                for data_s in dataset_segmented_10p:
+                    print(f"shape: {data_s.shape}")
+                dataset = dataset_segmented_10p
             return dataset, dataset_segments, dataset_time
 
         else:
