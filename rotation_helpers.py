@@ -56,6 +56,10 @@ def rotvec_to_rotation(vec):
     rot[2,2] =  kz*kz*vp   +cp
     return rot
 
+def rotation_to_quat(R):
+    r = rotation_to_rotvec(R)
+    return rotvec_to_quat(r)
+
 def rotation_to_rotvec(R):
     # http://scipp.ucsc.edu/~haber/ph216/rotation_12.pdf, (20), (27), (32)
     # also see scipy https://github.com/scipy/scipy/blob/a4bed793057026b86dc8fb12a5fd69813da8a728/scipy/spatial/transform/_rotation.pyx#L879
@@ -181,8 +185,39 @@ def xyz_to_quat(xyz): # Possible to optimize?
     # extrinsic = intrinsic with reversed order
     return quat_quat_mult(q0,quat_quat_mult(q1,q2))
 
-def xyz_to_rotation(xyz):
-    return quat_to_rotation(xyz_to_quat(xyz))
+def xyz_to_rotation(eu):
+    #return quat_to_rotation(xyz_to_quat(xyz)) # old method
+    rot = ca.SX.zeros(3,3)
+    rot[0,0] =  ca.cos(eu[1])*ca.cos(eu[2])
+    rot[0,1] = -ca.cos(eu[1])*ca.sin(eu[2])
+    rot[0,2] =  ca.sin(eu[1])
+    rot[1,0] =  ca.sin(eu[0])*ca.sin(eu[1])*ca.cos(eu[2]) + ca.cos(eu[0])*ca.sin(eu[2])
+    rot[1,1] = -ca.sin(eu[0])*ca.sin(eu[1])*ca.sin(eu[2]) + ca.cos(eu[0])*ca.cos(eu[2])
+    rot[1,2] = -ca.sin(eu[0])*ca.cos(eu[1])
+    rot[2,0] = -ca.cos(eu[0])*ca.sin(eu[1])*ca.cos(eu[2]) + ca.sin(eu[0])*ca.sin(eu[2])
+    rot[2,1] =  ca.cos(eu[0])*ca.sin(eu[1])*ca.sin(eu[2]) + ca.sin(eu[0])*ca.cos(eu[2])
+    rot[2,2] =  ca.cos(eu[0])*ca.cos(eu[1])
+    return rot
+
+def rotation_to_xyz(R):
+    xyz = ca.SX.zeros(3)
+    xyz[0] = ca.atan2(-R[1,2], R[2,2])
+    xyz[1] = ca.atan2(R[0,2], ca.sqrt(1-R[0,2]*R[0,2]))
+    xyz[2] = ca.atan2(-R[0,1], R[0,0])
+    return xyz
+
+def xyz_pose_to_tmat(x):
+    R_sym = xyz_to_rotation(x[3:])
+    rot = ca.vertcat(R_sym, ca.SX(1,3))
+    pos = ca.vertcat(x[:3], ca.SX(1))
+    return ca.horzcat(rot,pos)  # simbolic transformation matrix
+
+def tmat_to_xyz_pose(T):
+    pos = T[:3,-1]
+    rot = T[:3,:3]
+    rot_vec = rotation_to_xyz(rot)
+    return ca.vertcat(pos,rot_vec)
+
 
 #### Quaternions ####
 #### Mostly following tutorial from Weizmann
