@@ -1,6 +1,6 @@
 import os
 from .dataload_helper import data
-from .visualize import plot_x_pt_inX, plot_3d_points_segments
+from .visualize import plot_x_pt_inX, plot_3d_points_segments, plot_T_traj, plot_T_traj_premium
 from .constraint import *
 #from .controller import Controller
 
@@ -42,7 +42,7 @@ def cable_fit_all():
 
 def rake_fit():
     pts, _, _ = data(index=1, segment=True, data_name='rake').load(pose=True, kp_delta_th=0.005)
-    constraint = DoublePointConstraint()
+    constraint = RakeConstraint_2pt()
     constraint.fit(pts[1], h_inf=True)
 
 def set_params():
@@ -51,6 +51,79 @@ def set_params():
     const.set_params(params)
     test = np.array([0.01,1.01,0.01,0.01,-0.01,0.02])
     print(const.jac_fn(test))
+
+def load_plug_data(L=[1,2,3], clustered=False):
+    cable_fixture = []
+    free_space = []
+    front_pivot = []
+    for ind in L:
+        pts, _, _ = data(index=ind, clustered = clustered, segment=True, data_name='plug').load(pose=True, kp_delta_th=0.005)
+        pts_thread, _, _ = data(index=ind, clustered= clustered, segment=True, data_name='plug_threading').load(pose=True, kp_delta_th=0.005)
+        free_space.append(pts[0])
+        free_space.append(pts_thread[0])
+        cable_fixture.append(pts[1])
+        cable_fixture.append(pts_thread[1])
+        front_pivot.append(pts_thread[2])
+    front_pivot = np.vstack(front_pivot)
+    cable_fixture = np.vstack(cable_fixture)
+    free_space = np.vstack(free_space)
+    return front_pivot, cable_fixture, free_space
+
+
+def load_rake_data(L=[1,2,3], clustered=False, rakedata = 'sexy_rake'):
+    rake_free = []
+    rake_mode = []
+    for ind in L:
+        pts, _, _ = data(index=ind, clustered = clustered, segment=True, data_name=rakedata).load(pose=True, kp_delta_th=0.005)
+        if rakedata == 'sexy_rake_hinge':
+            rake_free.append(pts[0])
+            rake_mode.append(pts[2])
+        else:
+            rake_free.append(pts[0])
+            rake_mode.append(pts[1])
+
+    rake_free = np.vstack(rake_free)
+    rake_mode = np.vstack(rake_mode)
+
+    return rake_free, rake_mode
+
+def plot_rake_hinge_fit(L=[1], clustered=False):
+    rake_free, rake_hinge = load_rake_data(L=L, clustered=clustered, rakedata='sexy_rake_hinge')
+    const = RakeConstraint_Hinge()
+    params = const.fit(data=rake_hinge, h_inf=False)
+    plot_T_traj_premium(rake_hinge, points=[params['pt_0'], params['pt_1']])
+
+def subsample(data, sub=10):
+    # Subsample
+    data_subset = []
+    for i, T in enumerate(data):
+        if i % sub == 0:
+            data_subset.append(T)
+    return np.array(data_subset)
+
+def plot_rake_fit(L=[1, 2, 3], clustered=False):
+    rake_free, rake_plane = load_rake_data(L=L, clustered=clustered)
+    const = RakeConstraint_2pt()
+    params = const.fit(rake_plane, h_inf=True)
+    plane = [params['plane_normal'], params['d']]
+    points = [params['pt_0'],params['pt_1']]
+    rake_plane = subsample(rake_plane)
+    plot_T_traj_premium(rake_plane, plane=plane, points=points, plane_gt=[[0,0,1], 0.04])
+
+def plot_plug_fit(L=[1,2,3], clustered=True):
+    front_pivot, cable_fixture, free_space = load_plug_data(L, clustered=clustered)
+    data = [cable_fixture, front_pivot, free_space]
+
+    #const = CableConstraint()
+    #params = const.fit(cable_fixture, h_inf=True)
+    #plot_3d_points_segments(data, rest_pt=params['rest_pt'], rest_pt_gt=np.array([-0.31187662, -0.36479221, -0.02907742]), radius=params['radius_1'], exp_n=0)
+
+    const = CableConstraint()
+    params = const.fit(front_pivot, h_inf=True)
+    plot_3d_points_segments(data, rest_pt=params['rest_pt'],
+                            rest_pt_gt=np.array([-0.22657112, -0.47936426, -0.0290753]), radius=params['radius_1'],
+                            exp_n=0)
+
 
 def save_cset_cable():
     #load all cable data and concatenate
@@ -102,7 +175,7 @@ def save_cset_rake():
 
     constraints = [FreeSpace,
                    RakeConstraint_2pt,
-                   RakeConstraint_hinge]
+                   RakeConstraint_Hinge]
 
     datasets = [rake_freespace, rake_on_plane, rake_on_hinge]
 
@@ -161,7 +234,7 @@ def test_rake_fit_hinge():
         dataset, segments, time = data(index=i+1, segment=True, data_name="sexy_rake_hinge").load(pose=True, kp_delta_th=0.003)
         rake_on_hinge = dataset[2]
 
-        constraint = RakeConstraint_hinge()
+        constraint = RakeConstraint_Hinge()
         params = constraint.fit(data=rake_on_hinge, h_inf=False)
         points = [params['pt_0'], params['pt_1']]
         plot_x_pt_inX(L_pt=points, X=rake_on_hinge, plane=None)
@@ -177,7 +250,10 @@ if __name__ == "__main__":
     #set_params()
     #save_cset()
     #test_similarity()
-    save_cset_rake()
+    #save_cset_rake()
     #test_rake_fit_hinge()
 
-
+    #Plot Figures
+    #plot_plug_fit(L=[2, 3], clustered=True)
+    plot_rake_fit(L=[1], clustered=False)
+    #plot_rake_hinge_fit(L=[2], clustered=False)

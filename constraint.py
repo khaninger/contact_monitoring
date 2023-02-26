@@ -219,7 +219,7 @@ class RakeConstraint_2pt(Constraint):
 
 
 
-class RakeConstraint_hinge(Constraint):
+class RakeConstraint_Hinge(Constraint):
     def __init__(self):
         params_init = {'pt_0': np.array([0.01, 0, 0]),  # first contact point in the object frame, which changes wrt 'x'
                        'pt_1': np.array([-0.01, 0, 0]),# second contact point in the object frame, which changes wrt 'x'
