@@ -53,7 +53,8 @@ class Constraint():
         self.params.set_results(sol['x'])
         self.get_jac()
 
-        self.params['T_final'] = data[-1]
+        self.params['T_traj'] = data        # save the full trajecory
+        self.params['T_final'] = data[-1]   # save the final point in the dataset
         print(f"Optimized params: \n {self.params}")
 
         return self.params
@@ -224,10 +225,6 @@ class RakeConstraint_2pt(Constraint):
         delta_0 = ca.dot(x_pt0, plane_normal) - self.params['d']
         delta_1 = ca.dot(x_pt1, plane_normal) - self.params['d']
         return ca.vertcat(delta_0 + delta_x, delta_1 + delta_x)
-
-
-
-
 
 class RakeConstraint_Hinge(Constraint):
     def __init__(self):
