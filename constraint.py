@@ -119,6 +119,7 @@ class FreeSpace(Constraint):
         Constraint.__init__(self, {})
 
     def fit(self, data):
+        self.params['T_traj'] = data
         self.params['T_final'] = data[-1]
         print(f"Optimized params: \n {self.params}")
         return self.params

@@ -6,6 +6,9 @@ def cross(a,b):
                       a[2]*b[0]-a[0]*b[2],
                       a[0]*b[1]-a[1]*b[0])
 
+def dist_T(T1, T2):
+    return np.linalg.norm(T1[:3,3]-T2[:3,3])
+
 def transform_pt(T, x):
     if type(T) is np.ndarray:
         T = ca.DM(T)

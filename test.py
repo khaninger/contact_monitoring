@@ -244,7 +244,7 @@ if __name__ == "__main__":
     print("** Starting test(s) **")
     #cable_fit()
     #cable_fit_all()
-    #save_cset_cable()
+    save_cset_cable()
     #test_rake_fit_one_pt()
     #test_rake_fit_two_pt()
     #set_params()
@@ -255,5 +255,5 @@ if __name__ == "__main__":
 
     #Plot Figures
     #plot_plug_fit(L=[2, 3], clustered=True)
-    plot_rake_fit(L=[1], clustered=False)
+    #plot_rake_fit(L=[1], clustered=False)
     #plot_rake_hinge_fit(L=[2], clustered=False)

@@ -25,6 +25,8 @@ p = {'vel_max': np.array([*[0.02]*3, *[0.001]*3]), # maximum velocity for lin, a
      'hz':500,              # sample rate of controller
      'stop_distance': 0.01, # meters from goal pose to stop, linear
 
+     'traj_dist_threshold': 0.05, # meters from next point to advance the trajectory
+
      'ctrl_type': 'cartesian_compliance_controller',  # twist_controller, cartesian_compliance_controller
      'speed_slider': 15.0/100.0, # Initial speed override value, as fraction
      'contact_magnitude': 12, # Force to apply in the contact direction, 4 for rake
@@ -40,6 +42,8 @@ class Controller():
         self.T_object2base = np.eye(4)
 
         self.active_constraint_prev = None
+        self.change_in_contact = True
+        self.traj_pt_prev = None
 
         self.online_control = online_control
         self.init_ros()
@@ -96,17 +100,35 @@ class Controller():
         active_constraint = self.detect_contact()
         if self.online_control: self.control(active_constraint)
 
+    def get_closest_pt_index(self, points):
+        # IN: a list of points on the trajectory
+        dist = [dist_T(self.T_object2base,pt) for pt in points]
+        index_closest = np.argmin(np.array(dist))
+        return index_closest
+
+    def get_next_pt(self, points):
+        index_next_pt = self.traj_pt_prev
+        if self.change_in_contact:
+            index_next_pt = self.get_closest_pt_index(points)
+        else:
+            if dist_T(points[self.traj_pt_prev], self.T_object2base) < p['traj_dist_threshold']:
+                index_next_pt = self.traj_pt_prev + 1
+        index_next_pt = min(index_next_pt, len(points)-1)
+        if index_next_pt != self.traj_pt_prev: print(f' {index_next_pt}/{len(points)}')
+        self.traj_pt_prev = index_next_pt
+        return points[index_next_pt]
+
     def control(self, active_constraint):
-
-
-        tcp_cmd = active_constraint.params['T_final']@invert_TransMat(self.T_object2tcp)
+        #tcp_cmd = active_constraint.params['T_final']@invert_TransMat(self.T_object2tcp)
+        next_pt = self.get_next_pt(active_constraint.params['T_traj'])
+        tcp_cmd = next_pt@invert_TransMat(self.T_object2tcp)
         self.build_and_send_pose(tcp_cmd)
 
         wrench_cmd = active_constraint.calc_constraint_wrench(self.T_object2base, p['contact_magnitude'])
         next_constraint = self.cset.get_next(active_constraint)
         if next_constraint:
             wrench_cmd += next_constraint.calc_constraint_wrench(self.T_object2base, p['contact_magnitude'])
-        self.build_and_send_wrench(wrench_cmd)
+        #self.build_and_send_wrench(wrench_cmd)
 
     def detect_contact(self):
         # The transformation of force frame is from the MS Thesis of Bo Ho
@@ -128,7 +150,10 @@ class Controller():
 
         if active_constraint is not self.active_constraint_prev:
             print(f'Changing constraint to {active_constraint}')
+            self.change_in_contact = True
             self.active_constraint_prev = active_constraint
+        else:
+            self.change_in_contact = False
 
         self.build_and_send_sim(sim)
         return active_constraint
