@@ -26,17 +26,18 @@ p = {'vel_max': np.array([*[0.02]*3, *[0.001]*3]), # maximum velocity for lin, a
      'stop_distance': 0.01, # meters from goal pose to stop, linear
 
      'traj_dist_threshold': 0.05, # meters from next point to advance the trajectory
-
+     'traj_max_wait': 50,         # num time steps to keep same goal
      'ctrl_type': 'cartesian_compliance_controller',  # twist_controller, cartesian_compliance_controller
      'speed_slider': 15.0/100.0, # Initial speed override value, as fraction
-     'contact_magnitude': 12, # Force to apply in the contact direction, 4 for rake
+     'contact_magnitude_active': 12, # Force to apply in the contact direction, 4 for rake
+     'contact_magnitude_free': 12,
      }
 
 class Controller():
     def __init__(self, task, online_control = False):
         self.cset = ConstraintSet(file_path = "contact_monitoring/data/"+task+"_constraint.pickle")
         self.T_object2tcp = pickle.load(open("contact_monitoring/data/constraint_T.pickle", "rb"))[task]
-
+        print(f'Object to tcp {self.T_object2tcp}')
         self.f_tcp = None
         self.T_tcp = np.eye(4)
         self.T_object2base = np.eye(4)
@@ -44,6 +45,7 @@ class Controller():
         self.active_constraint_prev = None
         self.change_in_contact = True
         self.traj_pt_prev = None
+        self.time_at_prev = 0   # num of timesteps with previous goal
 
         self.online_control = online_control
         self.init_ros()
@@ -97,8 +99,8 @@ class Controller():
         except:
             print("Error loading ROS message in force_callback")
         self.tcp_process()
-        active_constraint = self.detect_contact()
-        if self.online_control: self.control(active_constraint)
+        active_constraint, name = self.detect_contact()
+        if self.online_control: self.control(active_constraint, name)
 
     def get_closest_pt_index(self, points):
         # IN: a list of points on the trajectory
@@ -108,27 +110,46 @@ class Controller():
 
     def get_next_pt(self, points):
         index_next_pt = self.traj_pt_prev
+        timed_out = '          '
         if self.change_in_contact:
             index_next_pt = self.get_closest_pt_index(points)
         else:
             if dist_T(points[self.traj_pt_prev], self.T_object2base) < p['traj_dist_threshold']:
                 index_next_pt = self.traj_pt_prev + 1
+            elif self.time_at_prev > p['traj_max_wait']:
+                index_next_pt = self.traj_pt_prev + 1
+                timed_out = ' timed out'
+            else:
+                self.time_at_prev += 1
+
         index_next_pt = min(index_next_pt, len(points)-1)
-        if index_next_pt != self.traj_pt_prev: print(f' {index_next_pt}/{len(points)}')
-        self.traj_pt_prev = index_next_pt
+        if index_next_pt != self.traj_pt_prev:
+            print(f'Current trajectory point:  {index_next_pt}/{len(points)}, {timed_out}', end="\r", flush=True)
+            self.traj_pt_prev = index_next_pt
+            self.time_at_prev = 0
         return points[index_next_pt]
 
-    def control(self, active_constraint):
+    def control(self, active_constraint, constraint_name):
         #tcp_cmd = active_constraint.params['T_final']@invert_TransMat(self.T_object2tcp)
-        next_pt = self.get_next_pt(active_constraint.params['T_traj'])
+        if constraint_name is not 'front_pivot':
+            next_pt = self.get_next_pt(active_constraint.params['T_traj'])
+        else:
+            next_pt = self.T_object2base
+        #print(next_pt)
         tcp_cmd = next_pt@invert_TransMat(self.T_object2tcp)
+        #print(f'current: {self.T_object2base[:3, 3]} desired: {next_pt[:3, 3]}')
         self.build_and_send_pose(tcp_cmd)
-
-        wrench_cmd = active_constraint.calc_constraint_wrench(self.T_object2base, p['contact_magnitude'])
+        
+        wrench_cmd_base = active_constraint.calc_constraint_wrench(self.T_object2base, p['contact_magnitude_active'])
         next_constraint = self.cset.get_next(active_constraint)
-        if next_constraint:
-            wrench_cmd += next_constraint.calc_constraint_wrench(self.T_object2base, p['contact_magnitude'])
-        #self.build_and_send_wrench(wrench_cmd)
+        if constraint_name == 'free_space':
+            wrench_cmd_base += next_constraint.calc_constraint_wrench(self.T_object2base, p['contact_magnitude_free'])
+        #if next_constraint:
+            #wrench_cmd_base = next_constraint.calc_constraint_wrench(self.T_object2base, p['contact_magnitude'])
+            #pass
+        wrench_cmd_tcp = -transform_force(self.T_tcp, wrench_cmd_base)
+        wrench_cmd_tcp[2:] = 0
+        self.build_and_send_wrench(wrench_cmd_tcp)
 
     def detect_contact(self):
         # The transformation of force frame is from the MS Thesis of Bo Ho
@@ -146,17 +167,17 @@ class Controller():
         #print(f'Real  forces: {f_base.T}')
         #print(f'Const forces: {self.f_constraint.T}')
 
-        sim, active_constraint = self.cset.id_constraint(self.T_object2base, self.f_constraint)
+        sim, active_constraint, name = self.cset.id_constraint(self.T_object2base, self.f_constraint)
 
         if active_constraint is not self.active_constraint_prev:
-            print(f'Changing constraint to {active_constraint}')
+            #print(f'Changing constraint to {active_constraint}')
             self.change_in_contact = True
             self.active_constraint_prev = active_constraint
         else:
             self.change_in_contact = False
 
         self.build_and_send_sim(sim)
-        return active_constraint
+        return active_constraint, name
 
     def build_and_send_sim(self, sim): # IN: sim is a dictionary of simililarity scores
         name = sim.keys()

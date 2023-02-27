@@ -156,8 +156,16 @@ def save_cset_cable():
     c_set = ConstraintSet()
     c_set.fit(names=names, constraints=constraints, datasets=datasets)
 
+    print("Fitting complete Now load other traj")
+    #saving premium trajectory
+    pts_thread, _, _ = data(index=5, segment=True, data_name='plug_threading_new').load(pose=True, kp_delta_th=0.004)
+    for i, name in enumerate(names):
+        c_set.constraints[name].params["T_traj"] = pts_thread[i]
+
+
     path = os.getcwd() + "/contact_monitoring/data/cable_constraint.pickle"
     c_set.save(file_path=path)
+
     c_set.load(file_path=path)
     print(c_set.constraints)
 
