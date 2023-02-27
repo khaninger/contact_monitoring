@@ -314,6 +314,7 @@ class ConstraintSet():
             print('\rFree space               ', end="")
             active_con = 'free_space'
             #print(self.force_buffer)
+
         else:
             new_con = min(self.sim_score, key=lambda  y: self.sim_score[y])
             if len(self.con_buffer) is 0 or self.sim_score[new_con] < self.sim_score[self.con_buffer[0]] - tol_sim: # We accept the new constraint because it's better
