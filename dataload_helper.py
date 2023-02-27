@@ -94,7 +94,7 @@ class data():
 
                 dataset = dataset_segmented
 
-            if False:#self.clustered:  # Throw away first and last 10 percent of clusters
+            if self.clustered:  # Throw away first and last 10 percent of clusters
                 dataset_segmented_10p = []
                 for data_s in dataset_segmented:
                     index_10p = int(data_s.shape[0]/10)
@@ -118,7 +118,16 @@ if __name__ == "__main__":
     # segment = False -> stack([Dataset_segment_0, Dataset_segment_1, Dataset_segment_2, ...])
     # pose = True -> Dataset[i,:,:] = (4,4) gives poses for every datapoint
     # pose = False -> Dataset[i,:,:] = (i,3) gives keypoints for every datapoint
+    path = os.getcwd() +"/contact_monitoring/data/sexy_rake_hinge_premium.pickle"
+    name = "sexy_rake_hinge"
+
+    dictionary = {}
     for i in range(3):
-        dataset, segments, time = data(index=i+1, segment=True, data_name="plug").load(pose=True, kp_delta_th=0.005)
-        print(dataset[0][0,:,:])
+        dataset, segments, time = data(index=i+1, segment=False, data_name=name).load(pose=True, kp_delta_th=0.004)
+        sub_dictionary = {}
+        sub_dictionary["dataset"] = dataset
+        sub_dictionary["segments"] = segments
+        sub_dictionary["time"] = time
+        dictionary[name+"_"+str(i)] = sub_dictionary
+    pickle.dump(dictionary, open(path, 'wb'))
 
