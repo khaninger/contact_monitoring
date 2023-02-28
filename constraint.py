@@ -80,7 +80,9 @@ class Constraint():
         wrench = ca.SX.zeros(6)
         for row in range(contact_jac.shape[0]):
             jac_element = contact_jac[row,:3]
-            wrench[:3] += magnitude*jac_element.T/ca.norm_2(jac_element)
+            normjac = jac_element.T/ca.norm_2(jac_element)
+            wrench[:3] += magnitude*normjac
+            #print(f"norm: {ca.norm_2(normjac)}")
         
         return wrench
 
@@ -213,7 +215,7 @@ class RakeConstraint_2pt(Constraint):
         Constraint.__init__(self, params_init)
 
     def regularization(self):
-        return 0.001*(10*ca.fabs(ca.norm_2(self.params['plane_normal']) - 1) +
+        return 0.01*(10*ca.fabs(ca.norm_2(self.params['plane_normal']) - 1) +
                       ca.norm_2(self.params['pt_0']) +
                       ca.norm_2(self.params['pt_1']) +
                       ca.norm_2(self.params['pt_0']-self.params['pt_1'])-0.2)
@@ -226,7 +228,7 @@ class RakeConstraint_2pt(Constraint):
         delta_x = ca.fabs(ca.dot((x_pt0 - x_pt1), plane_normal))
         delta_0 = ca.dot(x_pt0, plane_normal) - self.params['d']
         delta_1 = ca.dot(x_pt1, plane_normal) - self.params['d']
-        return ca.vertcat(delta_0 + delta_x, delta_1 + delta_x)
+        return -1.0*ca.vertcat(delta_0 + delta_x, delta_1 + delta_x)
 
 class RakeConstraint_Hinge(Constraint):
     def __init__(self):
@@ -250,7 +252,7 @@ class RakeConstraint_Hinge(Constraint):
         x_pt1 = transform_pt(T, self.params['pt_1'])
         delta_0 = ca.norm_2(self.params['rest_pt_0'] - x_pt0)
         delta_1 = ca.norm_2(self.params['rest_pt_1'] - x_pt1)
-        return ca.vertcat(delta_0, delta_1)
+        return -ca.vertcat(delta_0, delta_1)
 
 class ConstraintSet():
     def __init__(self, file_path = None):
@@ -299,20 +301,23 @@ class ConstraintSet():
 
     def id_constraint(self, x, f):
         # identify which constraint is most closely matching the current force
-        threshold = 2.5  # 6 for cable, 2.5 for rake
+        threshold = 1.4 # 6 for cable, 2.5 for rake
         tol_violation = 0.5  # to be defined
         tol_sim = 2.5  # to be better defined
         self.force_buffer.append(np.linalg.norm(f))
+        #print("DEBUG")
+        #print(np.linalg.norm(f[3:]))
+        #print(np.linalg.norm(f[:3]))
         for name, constr in self.constraints.items():
             self.sim_score[name] = constr.get_similarity(x, f)
 
-            #if name != 'free_space': print(f'{name}: {constr.jac_fn(constr.tmat_to_pose(x))}')
-            self.vio[name] = constr.violation(x)
+            print(f'{name}: {ca.sum1((constr.jac_fn(constr.tmat_to_pose(x))))}')
 
+            self.vio[name] = constr.violation(x)
 
         #print(f"Sim score: {self.sim_score}")
         if (any(it<threshold for it in self.force_buffer)): # or (all(itr>tol_violation for itr in self.vio.values())):
-            print('\rFree space               ', end="")
+            print('\nFree space               ', end="")
             active_con = 'free_space'
             #print(self.force_buffer)
 
@@ -323,7 +328,7 @@ class ConstraintSet():
                 active_con = new_con
                 self.con_buffer.append(new_con)  # Save it for future comparison
             else: # We reject the new constraint because its not better
-                print(f"Sim score: {self.sim_score}")
+                #print(f"Sim score: {self.sim_score}")
                 active_con = self.con_buffer[0]
         self.con_buffer.append(active_con)
         is_final = True if (active_con == list(self.constraints)[-1]) else False

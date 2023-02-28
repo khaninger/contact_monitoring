@@ -30,7 +30,7 @@ p = {'vel_max': np.array([*[0.02]*3, *[0.001]*3]), # maximum velocity for lin, a
      'ctrl_type': 'cartesian_compliance_controller',  # twist_controller, cartesian_compliance_controller
      'speed_slider': 15.0/100.0, # Initial speed override value, as fraction
      'contact_magnitude_active': 4, # 12, # Force to apply in the contact direction, 4 for rake
-     'contact_magnitude_free': 12,
+     'contact_magnitude_free': 6,
      }
 
 class Controller():
@@ -136,45 +136,38 @@ class Controller():
     def control(self, active_constraint, constraint_name):
         #tcp_cmd = active_constraint.params['T_final']@invert_TransMat(self.T_object2tcp)
         #traj = [*active_constraint.params['T_traj'], *self.cset.get_next(active_constraint), *self.cset.get_next(self.cset.get_next(active_constraint))]
+        traj = self.cset.constraints["hinge"].params['T_traj']
 
 
 
-        """
-        active_constraint = self.cset.get_next(active_constraint)
-        traj.append(active_constraint.params['T_traj'])
-        active_constraint = self.cset.get_next(active_constraint)
-        traj.append(active_constraint.params['T_traj'])
-        flat_list = []
-        for sublist in traj:
-            for item in sublist:
-                flat_list.append(item)
-                #print(f"pose\n{item}")
-        """
-        next_pt, traj_vel = self.get_next_pt(active_constraint.params['T_traj'])
 
-        #print("\n\nDEBUG")
-        #print(next_pt)
-        #print(flat_list[213])
-        #print(traj_vel)
+
+        #next_pt, traj_vel = self.get_next_pt(active_constraint.params['T_traj'])
+        next_pt, traj_vel = self.get_next_pt(traj)
         tcp_cmd = next_pt@invert_TransMat(self.T_object2tcp)
-        #print(f'current: \n{self.T_object2base} desired: \n{next_pt}')
-        self.build_and_send_pose(tcp_cmd)
+        self.build_and_send_pose(self.T_tcp)
+        #self.build_and_send_pose(tcp_cmd)
 
 
         #force stuff
         wrench_cmd_base = active_constraint.calc_constraint_wrench(self.T_object2base, p['contact_magnitude_active'])
         next_constraint = self.cset.get_next(active_constraint)
-        if constraint_name == 'free_space':
-            wrench_cmd_base += next_constraint.calc_constraint_wrench(self.T_object2base, p['contact_magnitude_free'])
+        #if constraint_name == 'free_space':
+        #    wrench_cmd_base += next_constraint.calc_constraint_wrench(self.T_object2base, p['contact_magnitude_free'])
         #wrench_cmd_base[:3] += 150*traj_vel
         if next_constraint:
             wrench_cmd_base = next_constraint.calc_constraint_wrench(self.T_object2base, p['contact_magnitude_free'])
-            pass
-        wrench_cmd_tcp = -transform_force(self.T_tcp, wrench_cmd_base)
+            #pass
+
+        wrench_cmd_tcp = transform_force(invert_TransMat(self.T_tcp), wrench_cmd_base)
+        #print(f'base {wrench_cmd_base} tcp {wrench_cmd_tcp}')
         wrench_cmd_tcp[3:] = 0
         self.build_and_send_wrench(wrench_cmd_tcp)
+        #print("DEBUG")
+        #print(f"constraint name: {constraint_name}")
+        #print(wrench_cmd_tcp[:3])
 
-        #self.build_and_send_wrench(np.array([0, 0, 45, 0, 0 ,0]))
+        #self.build_and_send_wrench(np.array([0, 0, 10, 0, 0 ,0]))
 
 
     def detect_contact(self):
