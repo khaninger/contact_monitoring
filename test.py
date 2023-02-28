@@ -190,6 +190,7 @@ def save_cset_rake():
     c_set = ConstraintSet()
     c_set.fit(names=names, constraints=constraints, datasets=datasets)
 
+
     path = os.getcwd() + "/contact_monitoring/data/rake_constraint.pickle"
     c_set.save(file_path=path)
     c_set.load(file_path=path)
@@ -252,13 +253,13 @@ if __name__ == "__main__":
     print("** Starting test(s) **")
     #cable_fit()
     #cable_fit_all()
-    save_cset_cable()
+    #save_cset_cable()
     #test_rake_fit_one_pt()
     #test_rake_fit_two_pt()
     #set_params()
     #save_cset()
     #test_similarity()
-    #save_cset_rake()
+    save_cset_rake()
     #test_rake_fit_hinge()
 
     #Plot Figures

@@ -299,12 +299,13 @@ class ConstraintSet():
 
     def id_constraint(self, x, f):
         # identify which constraint is most closely matching the current force
-        threshold = 6   # 6 for cable, 2.5 for rake
+        threshold = 2.5  # 6 for cable, 2.5 for rake
         tol_violation = 0.5  # to be defined
         tol_sim = 2.5  # to be better defined
         self.force_buffer.append(np.linalg.norm(f))
         for name, constr in self.constraints.items():
             self.sim_score[name] = constr.get_similarity(x, f)
+
             #if name != 'free_space': print(f'{name}: {constr.jac_fn(constr.tmat_to_pose(x))}')
             self.vio[name] = constr.violation(x)
 
@@ -322,7 +323,7 @@ class ConstraintSet():
                 active_con = new_con
                 self.con_buffer.append(new_con)  # Save it for future comparison
             else: # We reject the new constraint because its not better
-                #print(f"Sim score: {self.sim_score}")
+                print(f"Sim score: {self.sim_score}")
                 active_con = self.con_buffer[0]
         self.con_buffer.append(active_con)
         is_final = True if (active_con == list(self.constraints)[-1]) else False
