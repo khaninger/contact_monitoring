@@ -41,7 +41,7 @@ def cable_fit_all():
         f"** Ground truth **\nradius_1:\n: {0.14}\nrest_pt:\n: {np.array([-0.22657112, -0.47936426, -0.0320753])}")
 
 def rake_fit():
-    pts, _, _ = data(index=1, segment=True, data_name='rake').load(pose=True, kp_delta_th=0.005)
+    pts, _, _ = data(index=1, segment=True, data_name='sexy_rake').load(pose=True, kp_delta_th=0.005)
     constraint = RakeConstraint_2pt()
     constraint.fit(pts[1], h_inf=True)
 
@@ -176,7 +176,7 @@ def save_cset_rake():
     dataset, segments, time = data(index=1, segment=True, data_name="sexy_rake").load(pose=True, kp_delta_th=0.003)
     rake_on_plane = dataset[1]
     rake_freespace = dataset[0]
-    dataset, segments, time = data(index=1, segment=True, data_name="sexy_rake_hinge").load(pose=True, kp_delta_th=0.003)
+    dataset, segments, time = data(index=2, segment=True, data_name="sexy_rake_hinge").load(pose=True, kp_delta_th=0.003)
     rake_on_hinge = dataset[2]
 
     names = ['free_space', 'plane', 'hinge']
@@ -252,6 +252,7 @@ def test_rake_fit_hinge():
 if __name__ == "__main__":
     print("** Starting test(s) **")
     #cable_fit()
+    #rake_fit()
     #cable_fit_all()
     #save_cset_cable()
     #test_rake_fit_one_pt()
