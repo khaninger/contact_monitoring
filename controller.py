@@ -29,7 +29,7 @@ p = {'vel_max': np.array([*[0.02]*3, *[0.001]*3]), # maximum velocity for lin, a
      'traj_max_wait': 50,         # num time steps to keep same goal
      'ctrl_type': 'cartesian_compliance_controller',  # twist_controller, cartesian_compliance_controller
      'speed_slider': 15.0/100.0, # Initial speed override value, as fraction
-     'contact_magnitude_active': 12, # Force to apply in the contact direction, 4 for rake
+     'contact_magnitude_active': 4, # 12, # Force to apply in the contact direction, 4 for rake
      'contact_magnitude_free': 12,
      }
 
@@ -127,29 +127,34 @@ class Controller():
             print(f'Current trajectory point:  {index_next_pt}/{len(points)}, {timed_out}', end="\r", flush=True)
             self.traj_pt_prev = index_next_pt
             self.time_at_prev = 0
-        return points[index_next_pt]
+        if index_next_pt > 90:
+            traj_vel = points[index_next_pt][:3,3]-points[index_next_pt-90][:3,3]
+        else:
+            traj_vel = np.zeros(3)
+        return points[index_next_pt], traj_vel
 
     def control(self, active_constraint, constraint_name):
         #tcp_cmd = active_constraint.params['T_final']@invert_TransMat(self.T_object2tcp)
-        if constraint_name is not 'front_pivot':
-            next_pt = self.get_next_pt(active_constraint.params['T_traj'])
-        else:
-            next_pt = self.T_object2base
-        #print(next_pt)
+        
+        next_pt, traj_vel = self.get_next_pt(active_constraint.params['T_traj'])
+        #print(traj_vel)
         tcp_cmd = next_pt@invert_TransMat(self.T_object2tcp)
         #print(f'current: {self.T_object2base[:3, 3]} desired: {next_pt[:3, 3]}')
         self.build_and_send_pose(tcp_cmd)
-        
+
         wrench_cmd_base = active_constraint.calc_constraint_wrench(self.T_object2base, p['contact_magnitude_active'])
         next_constraint = self.cset.get_next(active_constraint)
         if constraint_name == 'free_space':
             wrench_cmd_base += next_constraint.calc_constraint_wrench(self.T_object2base, p['contact_magnitude_free'])
+        #wrench_cmd_base[:3] += 150*traj_vel
         #if next_constraint:
             #wrench_cmd_base = next_constraint.calc_constraint_wrench(self.T_object2base, p['contact_magnitude'])
             #pass
         wrench_cmd_tcp = -transform_force(self.T_tcp, wrench_cmd_base)
-        wrench_cmd_tcp[2:] = 0
+        wrench_cmd_tcp[3:] = 0
         self.build_and_send_wrench(wrench_cmd_tcp)
+        #self.build_and_send_wrench(np.array([0, 0, 45, 0, 0 ,0]))
+
 
     def detect_contact(self):
         # The transformation of force frame is from the MS Thesis of Bo Ho

@@ -81,10 +81,6 @@ class Constraint():
         for row in range(contact_jac.shape[0]):
             jac_element = contact_jac[row,:3]
             wrench[:3] += magnitude*jac_element.T/ca.norm_2(jac_element)
-<<<<<<< HEAD
-        
-=======
->>>>>>> 206b2279bf6a2f3b5ed6b2d0dc80b23bf0e4fd6d
         return wrench
 
     def get_similarity(self, T, f):
@@ -123,10 +119,6 @@ class FreeSpace(Constraint):
         Constraint.__init__(self, {})
 
     def fit(self, data):
-<<<<<<< HEAD
-        self.params['T_traj'] = [data[-1]]
-=======
->>>>>>> 206b2279bf6a2f3b5ed6b2d0dc80b23bf0e4fd6d
         self.params['T_final'] = data[-1]
         print(f"Optimized params: \n {self.params}")
         return self.params
@@ -307,11 +299,7 @@ class ConstraintSet():
         # identify which constraint is most closely matching the current force
         threshold = 6   # 6 for cable, 2.5 for rake
         tol_violation = 0.5  # to be defined
-<<<<<<< HEAD
-        tol_sim = 2.5  # to be better defined
-=======
         tol_sim = 2.0  # to be better defined
->>>>>>> 206b2279bf6a2f3b5ed6b2d0dc80b23bf0e4fd6d
         self.force_buffer.append(np.linalg.norm(f))
         for name, constr in self.constraints.items():
             self.sim_score[name] = constr.get_similarity(x, f)
@@ -321,15 +309,6 @@ class ConstraintSet():
 
         #print(f"Sim score: {self.sim_score}")
         if (any(it<threshold for it in self.force_buffer)): # or (all(itr>tol_violation for itr in self.vio.values())):
-<<<<<<< HEAD
-            print('\rFree space               ', end="")
-            active_con = 'free_space'
-            #print(self.force_buffer)
-        else:
-            new_con = min(self.sim_score, key=lambda  y: self.sim_score[y])
-            if len(self.con_buffer) is 0 or self.sim_score[new_con] < self.sim_score[self.con_buffer[0]] - tol_sim: # We accept the new constraint because it's better
-                print(f'\nConstraint: {new_con}                  ')
-=======
             active_con = 'free_space'
             #print(self.force_buffer)
 
@@ -337,19 +316,13 @@ class ConstraintSet():
             new_con = min(self.sim_score, key=lambda  y: self.sim_score[y])
             if len(self.con_buffer) is 0 or self.sim_score[new_con] < self.sim_score[self.con_buffer[0]] - tol_violation: # We accept the new constraint because it's better
                 print(f'New constraint: {new_con}')
->>>>>>> 206b2279bf6a2f3b5ed6b2d0dc80b23bf0e4fd6d
                 active_con = new_con
                 self.con_buffer.append(new_con)  # Save it for future comparison
             else: # We reject the new constraint because its not better
                 #print(f"Sim score: {self.sim_score}")
                 active_con = self.con_buffer[0]
         self.con_buffer.append(active_con)
-<<<<<<< HEAD
-        is_final = True if (active_con == list(self.constraints)[-1]) else False
-        return self.sim_score, self.constraints[active_con], active_con
-=======
         return self.sim_score, self.constraints[active_con]
->>>>>>> 206b2279bf6a2f3b5ed6b2d0dc80b23bf0e4fd6d
 
 
 if __name__ == "__main__":
