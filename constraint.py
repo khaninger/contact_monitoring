@@ -46,7 +46,7 @@ class Constraint():
         args = dict(x0=x0, lbx=lbx, ubx=ubx, p=None, lbg=-np.inf, ubg=np.zeros(len(ineq_constraints)))
 
         prob = dict(f=loss, x=x, g=ca.vertcat(*ineq_constraints))
-        solver = ca.nlpsol('solver', 'ipopt', prob, {'ipopt.print_level':5})
+        solver = ca.nlpsol('solver', 'ipopt', prob, {'ipopt.print_level':0})
 
         # solve, print and return
         sol = solver(x0 = x0, lbx = lbx, ubx = ubx)
