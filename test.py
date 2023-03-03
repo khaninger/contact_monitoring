@@ -2,16 +2,21 @@ import os
 from .dataload_helper import data
 from .visualize import plot_x_pt_inX, plot_3d_points_segments, plot_T_traj, plot_T_traj_premium
 from .constraint import *
+from .rotation_helpers import *
 #from .controller import Controller
 
 def cable_fit():
     for i in range(3):
         ind = i+1
-        pts, _, _ = data(index=ind, segment=True, data_name='plug').load(pose=True, kp_delta_th=0.005)
+        pts, _, _ = data(index=ind, segment=True, data_name='plug_threading').load(pose=True, kp_delta_th=0.005)
         constraint = CableConstraint()
-        constraint.fit(pts[1], h_inf=True)
+        params = constraint.fit(pts[2], h_inf=True)
+        rest_pt = params["rest_pt"]
+        distance = np.linalg.norm(rest_pt - np.array([-0.22657112, -0.47936426, -0.0320753]))
         print(
-        f"** Ground truth **\nradius_1:\n: {0.28}\nrest_pt:\n: {np.array([-0.31187662, -0.36479221, -0.03707742])}")
+            f"rest_pt_gt:\n: {np.array([-0.22657112, -0.47936426, -0.0320753])}\
+            rest_pt:\n: {rest_pt}\
+            \nrest_pt distance to gt is {distance}")
 
 
 
@@ -36,9 +41,9 @@ def cable_fit_all():
         data_set.append(pts_thread[2])
     data_set = np.vstack(data_set)
     constraint = CableConstraint()
-    constraint.fit(data_set, h_inf=True)
-    print(
-        f"** Ground truth **\nradius_1:\n: {0.14}\nrest_pt:\n: {np.array([-0.22657112, -0.47936426, -0.0320753])}")
+    params = constraint.fit(data_set, h_inf=True)
+    distance = np.linalg.norm(params["rest_pt"] - np.array([-0.22657112, -0.47936426, -0.0320753]))
+    print(f"** Ground truth **\nradius_1:\n: {0.14}\nrest_pt:\n: {np.array([-0.22657112, -0.47936426, -0.0320753])}\nrest_pt distance to gt is {distance}")
 
 def rake_fit():
     pts, _, _ = data(index=1, segment=True, data_name='sexy_rake').load(pose=True, kp_delta_th=0.005)
@@ -248,6 +253,28 @@ def test_rake_fit_hinge():
         points = [params['pt_0'], params['pt_1']]
         plot_x_pt_inX(L_pt=points, X=rake_on_hinge, plane=None)
 
+def test_rake_traj():
+    #Generate T to rotate
+    rotation = rand_rot()
+    T_0 = np.eye(4)
+    T_0[:3, :3] = rotation[:3, :3]
+    T_0[:3, 3] = np.array([0, -.5, .2])
+
+    center = np.array([-.1, -.4, .2])
+    T_center = np.eye(4)
+    T_center[:3, 3] = center
+
+    rel_center = center - T_0[:3, 3]
+    T_list = rotit(np.copy(T_0), rel_center=rel_center)
+
+    T_list = [T_center, T_0, *T_list]
+
+    for T in T_list:
+        d = np.linalg.norm([T[:3, 3]-center])
+        print(d)
+
+    plot_T_traj(T_list)
+
 
 if __name__ == "__main__":
     print("** Starting test(s) **")
@@ -260,10 +287,13 @@ if __name__ == "__main__":
     #set_params()
     #save_cset()
     #test_similarity()
-    save_cset_rake()
+    #save_cset_rake()
     #test_rake_fit_hinge()
 
     #Plot Figures
     #plot_plug_fit(L=[2, 3], clustered=True)
     #plot_rake_fit(L=[1], clustered=False)
     #plot_rake_hinge_fit(L=[2], clustered=False)
+
+    #raking
+    test_rake_traj()
