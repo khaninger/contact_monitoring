@@ -13,8 +13,6 @@ def cable_fit():
         print(
         f"** Ground truth **\nradius_1:\n: {0.28}\nrest_pt:\n: {np.array([-0.31187662, -0.36479221, -0.03707742])}")
 
-
-
 def cable_fit_all():
     data_set = []
     for i in range(3):
@@ -248,7 +246,26 @@ def test_rake_fit_hinge():
         points = [params['pt_0'], params['pt_1']]
         plot_x_pt_inX(L_pt=points, X=rake_on_hinge, plane=None)
 
-
+def compare_constraints():
+    dset, segments, time = data(index=1, segment=True, data_name="sexy_rake_hinge").load(pose=True, kp_delta_th=0.003)
+    constraints = {'Radius':CableConstraint,
+                   'Line_on_plane':RakeConstraint_2pt,
+                   'Hinge':RakeConstraint_Hinge}
+    norm2 = {c:0 for c in constraints.keys()}
+    norminf = {c:0 for c in constraints.keys()}
+    
+    dat = dset[1]
+    for k, const in constraints.items():
+        constraint = const()
+        parms = constraint.fit(data=dat)
+        for pt in dat:
+            viol = constraint.violation(pt)
+            print(viol)
+            norm2[k] += ca.norm_2(viol)/len(dat)
+            norminf[k] = max(norminf[k], ca.norm_inf(viol))
+    print(norm2)
+    print(norminf)
+ 
 if __name__ == "__main__":
     print("** Starting test(s) **")
     #cable_fit()
@@ -260,9 +277,11 @@ if __name__ == "__main__":
     #set_params()
     #save_cset()
     #test_similarity()
-    save_cset_rake()
+    #save_cset_rake()
     #test_rake_fit_hinge()
 
+    compare_constraints()
+    
     #Plot Figures
     #plot_plug_fit(L=[2, 3], clustered=True)
     #plot_rake_fit(L=[1], clustered=False)

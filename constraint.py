@@ -25,8 +25,9 @@ class Constraint():
     def fit(self, data, h_inf = True):
         # IN: data is the trajectory that we measure from the demonstration
         # IN: h_inf activates the hinf penalty and inequality constraints in the optimization problem
-        print(f"Fitting {str(type(self))} \n-> with following params:")
-        print(self.params)
+
+        #print(f"Fitting {str(type(self))} \n-> with following params:")
+        #print(self.params)
 
         loss = 0
         ineq_constraints = []
@@ -46,17 +47,18 @@ class Constraint():
         args = dict(x0=x0, lbx=lbx, ubx=ubx, p=None, lbg=-np.inf, ubg=np.zeros(len(ineq_constraints)))
 
         prob = dict(f=loss, x=x, g=ca.vertcat(*ineq_constraints))
-        solver = ca.nlpsol('solver', 'ipopt', prob, {'ipopt.print_level':0})
+        solver = ca.nlpsol('solver', 'ipopt', prob, {'ipopt.print_level':0, 'print_time':False})
 
         # solve, print and return
         sol = solver(x0 = x0, lbx = lbx, ubx = ubx)
         self.params.set_results(sol['x'])
         self.get_jac()
 
+        #print(f"Optimized params: \n {self.params}")
+        
         self.params['T_traj'] = data        # save the full trajecory
         self.params['T_final'] = data[-1]   # save the final point in the dataset
-        print(f"Optimized params: \n {self.params}")
-
+        
         return self.params
 
     def violation(self, T): # constraint violation for a transformation matrix T
