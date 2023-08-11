@@ -58,7 +58,7 @@ def plot_3d_points_segments(L, rest_pt=np.array([-0.31187662, -0.36479221, -0.03
 
 
     color_segments = ['c', 'm', 'y']
-    L_segment_names = ['Pivot 0', 'Pivot 1', 'Free space']
+    L_segment_names = ['Pivot 0 constrained motion', 'Pivot 1 constrained motion', 'Free space motion']
 
     ax = fig.add_subplot(111, projection='3d')
     ax.plot_wireframe(x, y, z, color=color_segments[1], linewidth=0.2)
@@ -69,8 +69,8 @@ def plot_3d_points_segments(L, rest_pt=np.array([-0.31187662, -0.36479221, -0.03
             points = (np.array(L_segment))
         ax.scatter(points[:, 0], points[:, 1], points[:, 2], color=color_segments[i], label=L_segment_names[i])
     if np.mean(rest_pt) != 0:
-        ax.scatter(rest_pt[0], rest_pt[1], rest_pt[2], color='b', label="Location pivot 1 fit")
-        ax.scatter(rest_pt_gt[0], rest_pt_gt[1], rest_pt_gt[2], color='r', label="Location pivot 1 ground truth")
+        ax.scatter(rest_pt[0], rest_pt[1], rest_pt[2], s=60, marker='o', color='b', label="Location pivot 1 fit")
+        ax.scatter(rest_pt_gt[0], rest_pt_gt[1], rest_pt_gt[2], s=60, marker='o', color='r', label="Location pivot 1 ground truth")
     if exp_n != 0:
         ax.set_title(f"Experiment {exp_n}")
     set_axes_equal(ax)
@@ -90,7 +90,7 @@ def plot_T_traj(T_list):
     ax = fig.add_subplot(111, projection='3d')
     #ax.plot_wireframe(x, y, z, color='black', linewidth=0.5)
     sc = 0.02
-    T_list.shape[0]
+    #T_list.shape[0]
     for T in T_list:
         x = T[:3,-1]
         rot = T[:3,:3]
@@ -99,6 +99,30 @@ def plot_T_traj(T_list):
         ax.plot([x[0], x[0] + sc * rot[0, 2]], [x[1], x[1] + sc * rot[1, 2]], [x[2], x[2] + sc * rot[2, 2]], 'b')
 
     set_axes_equal(ax)
+    ax.set_xlabel('X', fontsize=20)
+    ax.set_ylabel('Y', fontsize=20)
+    ax.set_zlabel('Z', fontsize=20)
+    plt.show()
+
+def plot_T_traj_plus(T_list, vector):
+    # IN: T_list is an iterable of transformation matrices representing object pose
+    fig = plt.figure(figsize=(14, 10), dpi=80)
+    ax = fig.add_subplot(111, projection='3d')
+    #ax.plot_wireframe(x, y, z, color='black', linewidth=0.5)
+    sc = 0.02
+    #T_list.shape[0]
+    for T in T_list:
+        x = T[:3,-1]
+        rot = T[:3,:3]
+        ax.plot([x[0], x[0] + sc * rot[0, 0]], [x[1], x[1] + sc * rot[1, 0]], [x[2], x[2] + sc * rot[2, 0]], 'r')
+        ax.plot([x[0], x[0] + sc * rot[0, 1]], [x[1], x[1] + sc * rot[1, 1]], [x[2], x[2] + sc * rot[2, 1]], 'g')
+        ax.plot([x[0], x[0] + sc * rot[0, 2]], [x[1], x[1] + sc * rot[1, 2]], [x[2], x[2] + sc * rot[2, 2]], 'b')
+    ax.plot([x[0], x[0] + sc * rot[0, 2]], [x[1], x[1] + sc * rot[1, 2]], [x[2], x[2] + sc * rot[2, 2]], 'b')
+
+    set_axes_equal(ax)
+    ax.set_xlabel('X', fontsize=20)
+    ax.set_ylabel('Y', fontsize=20)
+    ax.set_zlabel('Z', fontsize=20)
     plt.show()
 
 

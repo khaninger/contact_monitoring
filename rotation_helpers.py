@@ -1,6 +1,68 @@
 import casadi as ca
 import numpy as np
 
+
+def rot_z(theta, T=False):
+    rotation = np.array([[np.cos(theta), -np.sin(theta), 0, 0],
+                    [np.sin(theta), np.cos(theta), 0, 0],
+                    [0, 0, 1, 0],
+                    [0, 0, 0, 1]])
+    if T:
+        return rotation
+    else:
+        return rotation[:3,:3]
+def rand_rot():
+    # Generate random angles for each axis
+    theta_x = np.random.uniform(-np.pi, np.pi)
+    theta_y = np.random.uniform(-np.pi, np.pi)
+    theta_z = np.random.uniform(-np.pi, np.pi)
+
+    # Create rotation matrices for each axis
+    rotation_x = np.array([[1, 0, 0, 0],
+                           [0, np.cos(theta_x), -np.sin(theta_x), 0],
+                           [0, np.sin(theta_x), np.cos(theta_x), 0],
+                           [0, 0, 0, 1]])
+
+    rotation_y = np.array([[np.cos(theta_y), 0, np.sin(theta_y), 0],
+                           [0, 1, 0, 0],
+                           [-np.sin(theta_y), 0, np.cos(theta_y), 0],
+                           [0, 0, 0, 1]])
+
+    rotation_z = np.array([[np.cos(theta_z), -np.sin(theta_z), 0, 0],
+                           [np.sin(theta_z), np.cos(theta_z), 0, 0],
+                           [0, 0, 1, 0],
+                           [0, 0, 0, 1]])
+
+    # Combine the rotation matrices into one transformation matrix
+    return rotation_z @ rotation_y @ rotation_x
+def rot_mat_vec(vector, theta):
+    # returns the rotation matrix for a rotation of theta (0 - 2pi) around vector
+    sin_theta = np.sin(theta)
+    cos_theta = np.cos(theta)
+    x, y, z = list(vector)
+    C = np.array([
+        [0, -z, y], [z, 0, -x], [-y, x, 0],
+    ])
+    R = np.eye(3) + C*sin_theta + (C@C)*(1-cos_theta)
+    return R
+def rotit(T_0, rel_center = np.array([-.2, 0, 0])):
+    # center of rotation
+    center = T_0[:3,3] + rel_center
+    # rot around center
+    T_0[:3, 3] -= center
+    T_center = np.eye(4)
+    T_center[:3, 3] = center
+
+    angles = np.arange(.2 * np.pi, 1.8 * np.pi, np.pi / 40)
+    T_list = [rot_z(theta, T=True) @ T_0 for theta in angles]
+
+    T_list_shift = []
+    for T in T_list:
+        T[:3, 3] += center
+        T_list_shift.append(T)
+    return T_list_shift
+
+
 def cross(a,b):
     return ca.vertcat(a[1]*b[2]-a[2]*b[1],
                       a[2]*b[0]-a[0]*b[2],
