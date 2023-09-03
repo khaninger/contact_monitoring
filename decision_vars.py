@@ -68,7 +68,7 @@ class DecisionVarSet():
             val_orig = value
             value = DecisionVar(value)
             value.x = val_orig
-            print(f'DEBUG: {value.x}')
+            #print(f'DEBUG: {value.x}')
         self.__vars[key] = value
         self.__keys = list(self.__vars.keys())
 

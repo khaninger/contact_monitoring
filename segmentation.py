@@ -3,7 +3,7 @@ from scipy.stats import norm, multivariate_normal
 import math
 
 
-def segmentation(gmm,time,n_cl):
+def segmentation(gmm,time,n_cl, return_lik=False):
 
     means_time = gmm.means_[:, 0]
     overall_cov_tensor = gmm.covariances_
@@ -25,4 +25,7 @@ def segmentation(gmm,time,n_cl):
         idx[i] = np.argwhere(np.diff(np.sign(time_weights[:,i] - time_weights[:,i+1])) != 0).flatten()
 
     idx = idx.astype(int)
-    return idx
+    if not return_lik:
+        return idx
+    else:
+        return idx, likelihood

@@ -58,7 +58,7 @@ def plot_3d_points_segments(L, rest_pt=np.array([-0.31187662, -0.36479221, -0.03
 
 
     color_segments = ['c', 'm', 'y']
-    L_segment_names = ['Pivot 0 constrained motion', 'Pivot 1 constrained motion', 'Free space motion']
+    L_segment_names = ['Constraint 1 motion', 'Constraint 2 motion', 'Free space motion']
 
     ax = fig.add_subplot(111, projection='3d')
     ax.plot_wireframe(x, y, z, color=color_segments[1], linewidth=0.2)
@@ -69,8 +69,8 @@ def plot_3d_points_segments(L, rest_pt=np.array([-0.31187662, -0.36479221, -0.03
             points = (np.array(L_segment))
         ax.scatter(points[:, 0], points[:, 1], points[:, 2], color=color_segments[i], label=L_segment_names[i])
     if np.mean(rest_pt) != 0:
-        ax.scatter(rest_pt[0], rest_pt[1], rest_pt[2], s=60, marker='o', color='b', label="Location pivot 1 fit")
-        ax.scatter(rest_pt_gt[0], rest_pt_gt[1], rest_pt_gt[2], s=60, marker='o', color='r', label="Location pivot 1 ground truth")
+        ax.scatter(rest_pt[0], rest_pt[1], rest_pt[2], s=60, marker='o', color='b', label="Constraint 2 fit")
+        ax.scatter(rest_pt_gt[0], rest_pt_gt[1], rest_pt_gt[2], s=60, marker='o', color='r', label="Constraint 2 ground truth")
     if exp_n != 0:
         ax.set_title(f"Experiment {exp_n}")
     set_axes_equal(ax)

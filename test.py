@@ -1,4 +1,5 @@
 import os
+import numpy as np
 from .dataload_helper import data
 from .visualize import plot_x_pt_inX, plot_3d_points_segments, plot_T_traj, plot_T_traj_premium
 from .constraint import *
@@ -242,7 +243,6 @@ def test_rake_fit_two_pt():
         print(f"\n\nPlane Normal at:\n{params['plane_normal']}")
 
 
-
 def test_rake_fit_hinge():
     for i in range(3):
         dataset, segments, time = data(index=i+1, segment=True, data_name="sexy_rake_hinge").load(pose=True, kp_delta_th=0.003)
@@ -275,26 +275,58 @@ def test_rake_traj():
 
     plot_T_traj(T_list)
 
-def compare_constraints():
-    dset, segments, time = data(index=1, segment=True, data_name="sexy_rake_hinge").load(pose=True, kp_delta_th=0.003)
-    constraints = {'Radius':CableConstraint,
-                   'Line_on_plane':RakeConstraint_2pt,
-                   'Hinge':RakeConstraint_Hinge}
+def segmenting_validation():
+    #dset, segments, time = data(index=1, segment=True, data_name="sexy_rake_hinge").load(pose=True, kp_delta_th=0.003)
+
+    #f = pickle.load(open('contact_monitoring/data/video_sexy_rake_hinge_2.pickle', 'rb'))
+    dat, segments, _ = data(index=2, segment=False, data_name="sexy_rake_hinge").load(pose=True, kp_delta_th=10)
+    
+    cset = ConstraintSet(file_path = 'contact_monitoring/data/rake_constraint.pickle')
+    constraints = cset.constraints
     norm2 = {c:0 for c in constraints.keys()}
     norminf = {c:0 for c in constraints.keys()}
-    
-    dat = dset[1]
+
+    #dat = np.array(f)[:,:,:4]
+    print(np.array(dat).shape)
+    norm2_pt = {c:np.zeros(dat.shape[0]) for c in constraints.keys()}
+    norminf_pt = {c:np.zeros(dat.shape[0]) for c in constraints.keys()}
     for k, const in constraints.items():
-        constraint = const()
-        parms = constraint.fit(data=dat)
-        for pt in dat:
-            viol = constraint.violation(pt)
-            print(viol)
-            norm2[k] += ca.norm_2(viol)/len(dat)
-            norminf[k] = max(norminf[k], ca.norm_inf(viol))
+        for i in range(dat.shape[0]):
+            viol = ca.DM(const.violation(dat[i,:,:]))
+            print(f"const {k} viol {viol}")
+            #print(type(viol))
+            norm2_pt[k][i] = ca.norm_2(viol)
+            norminf_pt[k][i] = ca.norm_inf(viol)
+            norm2[k] += (norm2_pt[k][i]/dat.shape[0])
+            norminf[k] = max(norminf[k], norminf_pt[k][i])
     print(norm2)
     print(norminf)
+    res = {'mode_2norm':norm2, 'mode_infnorm':norminf,
+           'data_2norm':norm2_pt, 'data_infnorm':norminf_pt}
+    pickle.dump(res, open('contact_monitoring/data/fit_results.pickle', 'wb'))
 
+def constraint_selection():
+    constraints = {'free':FreeSpace,
+                   'point':CableConstraint,
+                   'line':RakeConstraint_2pt,
+                   'hinge':RakeConstraint_Hinge}
+    dat_rake, _, _ = data(index=2, segment=True, data_name="sexy_rake_hinge").load(pose=True, kp_delta_th=0.005)
+    dat_plug, _, _ = data(index=2, segment=True, data_name='plug').load(pose=True, kp_delta_th=0.005)
+
+    constraint = CableConstraint()
+    params, fit = constraint.fit(dat_plug[1], h_inf=True, return_loss=True)
+    
+    datasets = [dat_rake[0], dat_plug[1], dat_rake[1], dat_rake[2]]
+
+    res = {c:[] for c in constraints}
+    for dataset in datasets:
+        for name, const in constraints.items():
+            constraint = const()
+            _, loss = constraint.fit(data=dataset, h_inf=True, return_loss=True)
+            res[name].append(loss)
+
+    pickle.dump(res, open('contact_monitoring/data/constraint_selection.pickle', 'wb'))
+        
     
 if __name__ == "__main__":
     print("** Starting test(s) **")
@@ -310,9 +342,9 @@ if __name__ == "__main__":
     #save_cset_rake()
     #test_rake_fit_hinge()
 
-    compare_constraints()
+    #constraint_selection()
     
     #Plot Figures
-    #plot_plug_fit(L=[2, 3], clustered=True)
+    plot_plug_fit(L=[2, 3], clustered=True)
     #plot_rake_fit(L=[1], clustered=False)
     #plot_rake_hinge_fit(L=[2], clustered=False)

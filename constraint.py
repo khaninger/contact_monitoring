@@ -18,11 +18,11 @@ class Constraint():
     def set_params(self, params_init):
         # IN: params_init is a dictionary of the form of self.params
         print(f"Skipping fit on a {str(type(self))} \n-> just setting params")
-        print(params_init)
+        #print(params_init)
         self.params = params_init
         self.get_jac()
 
-    def fit(self, data, h_inf = True):
+    def fit(self, data, h_inf = True, return_loss = False):
         # IN: data is the trajectory that we measure from the demonstration
         # IN: h_inf activates the hinf penalty and inequality constraints in the optimization problem
 
@@ -58,8 +58,10 @@ class Constraint():
         
         self.params['T_traj'] = data        # save the full trajecory
         self.params['T_final'] = data[-1]   # save the final point in the dataset
-        
-        return self.params
+        if not return_loss:
+            return self.params
+        else:
+            return self.params, sol['f']
 
     def violation(self, T): # constraint violation for a transformation matrix T
         raise NotImplementedError
@@ -123,11 +125,14 @@ class FreeSpace(Constraint):
     def __init__(self):
         Constraint.__init__(self, {})
 
-    def fit(self, data):
+    def fit(self, data, h_inf=None, return_loss=False):
+        #print(f"Optimized params: \n {self.params}")
         self.params['T_traj'] = [data[-1]]
         self.params['T_final'] = data[-1]
-        print(f"Optimized params: \n {self.params}")
-        return self.params
+        if not return_loss:
+            return self.params
+        else:
+            return self.params, 0.0
 
     def violation(self, T):
         return 0.0
